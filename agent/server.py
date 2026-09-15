@@ -104,7 +104,8 @@ async def _drive(handle: RunHandle, initial: dict) -> None:
 
 # ---------------------------------------------------------------- /api/runs*
 def _start_run(text: str, account: str, autonomy: dict | None, auto_mode: bool) -> str:
-    """创建并驱动一个 run（/api/runs 与 /api/workflows/{id}/run 共用）。"""
+    """创建并驱动一个 run（/api/runs 与 /api/workflows/{id}/run 共用）。
+    必须在事件循环线程上调用（内部 asyncio.create_task）——sync 端点禁用。"""
     run_id = f"r-{uuid.uuid4().hex[:8]}"
     state = initial_state(run_id, text, account=account, autonomy=autonomy, auto_mode=auto_mode)
     handle = RunHandle(run_id)
@@ -242,7 +243,7 @@ def _read_json_or_empty(path, default):
 
 @app.get("/api/workflows")
 async def list_workflows():
-    return _read_json_or_empty(config.WORKFLOWS_JSON, [])
+    return workflows_store.load()
 
 
 @app.post("/api/workflows")
@@ -271,6 +272,7 @@ async def toggle_workflow(workflow_id: str):
 
 @app.post("/api/workflows/{workflow_id}/run")
 async def run_workflow(workflow_id: str):
+    # 手动触发不看 enabled：启停只影响未来调度器（一期未接入），「立即运行」是显式人工动作。
     wf = workflows_store.get(workflow_id)
     if wf is None:
         raise HTTPException(404, f"workflow {workflow_id} 不存在")
