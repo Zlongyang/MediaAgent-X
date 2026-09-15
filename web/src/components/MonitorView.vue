@@ -3,20 +3,24 @@
 import { computed, ref } from 'vue'
 import AppIcon from './AppIcon.vue'
 import LineChart from './LineChart.vue'
-import { ACCOUNTS, MONITOR_VIDEOS } from '../data/mock.js'
+import { ACCOUNTS } from '../data/mock.js'
+
+const props = defineProps({
+  videos: { type: Array, default: () => [] },
+})
 
 const emit = defineEmits(['open-project'])
 
 const filter = ref('all')
 
 const videos = computed(() =>
-  MONITOR_VIDEOS.filter((v) => filter.value === 'all' || v.account === filter.value)
+  props.videos.filter((v) => filter.value === 'all' || v.account === filter.value)
 )
 
 const summarySeries = computed(() => {
   // aggregate plays of filtered videos across the 4 pull points
   const pts = [0, 0, 0, 0]
-  for (const v of videos.value) v.series.forEach((n, i) => (pts[i] += n))
+  for (const v of videos.value) (v.series || []).forEach((n, i) => (pts[i] += n))
   return pts.map((value, i) => ({ label: ['T+1h', 'T+6h', 'T+24h', 'T+7d'][i], value }))
 })
 

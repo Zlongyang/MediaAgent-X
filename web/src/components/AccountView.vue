@@ -3,11 +3,13 @@
 import { computed } from 'vue'
 import StatusBadge from './StatusBadge.vue'
 import LineChart from './LineChart.vue'
-import { ACCOUNTS, NO_ACCOUNT, ACCOUNT_FANS, MONITOR_VIDEOS } from '../data/mock.js'
+import { ACCOUNTS, NO_ACCOUNT } from '../data/mock.js'
 
 const props = defineProps({
   accountKey: { type: String, required: true },
   projects: { type: Array, default: () => [] },
+  videos: { type: Array, default: () => [] },
+  fans: { type: String, default: '' }, // 真实模式无粉丝数据 → 空串不展示
 })
 
 const emit = defineEmits(['back', 'open-project'])
@@ -16,10 +18,10 @@ const account = computed(
   () => [...ACCOUNTS, NO_ACCOUNT].find((a) => a.key === props.accountKey) || NO_ACCOUNT
 )
 const isNone = computed(() => props.accountKey === 'none')
-const fans = computed(() => ACCOUNT_FANS[props.accountKey] || null)
+const fans = computed(() => props.fans || null)
 
 const acctProjects = computed(() => props.projects.filter((p) => p.account === props.accountKey))
-const acctVideos = computed(() => MONITOR_VIDEOS.filter((v) => v.account === props.accountKey))
+const acctVideos = computed(() => props.videos.filter((v) => v.account === props.accountKey))
 
 const totals = computed(() => {
   const t = { play: 0, like: 0, comment: 0 }
@@ -37,7 +39,7 @@ const publishedCount = computed(
 
 const trendSeries = computed(() => {
   const pts = [0, 0, 0, 0]
-  for (const v of acctVideos.value) v.series.forEach((n, i) => (pts[i] += n))
+  for (const v of acctVideos.value) (v.series || []).forEach((n, i) => (pts[i] += n))
   return pts.map((value, i) => ({ label: ['T+1h', 'T+6h', 'T+24h', 'T+7d'][i], value }))
 })
 

@@ -1,21 +1,53 @@
 <script setup>
 // 栏目页 · 已安排工作流（cron 风格）
 import { ref } from 'vue'
-import { ACCOUNTS } from '../data/mock.js'
+import { ACCOUNTS, NO_ACCOUNT } from '../data/mock.js'
 
 const props = defineProps({
   workflows: { type: Array, required: true },
 })
 
-const emit = defineEmits(['toggle', 'run'])
+const emit = defineEmits(['toggle', 'run', 'create', 'delete'])
 
-const acctLabel = (key) => (ACCOUNTS.find((a) => a.key === key) || {}).label || key
+const acctLabel = (key) =>
+  ([...ACCOUNTS, NO_ACCOUNT].find((a) => a.key === key) || {}).label || key
 
 const runningId = ref('')
 function runNow(wf) {
   runningId.value = wf.id
   emit('run', wf)
-  setTimeout(() => { if (runningId.value === wf.id) runningId.value = '' }, 1600)
+  setTimeout(() => {
+    if (runningId.value === wf.id) runningId.value = ''
+  }, 1600)
+}
+
+/* 新建表单 */
+const showForm = ref(false)
+const formErr = ref('')
+const draft = ref({ name: '', desc: '', schedule: '', account: 'dy-shuma', brief: '', enabled: true })
+const CRON_RE = /^\S+(\s+\S+){4}$/
+
+function submitForm() {
+  const d = draft.value
+  if (!d.name.trim()) {
+    formErr.value = '请填写名称'
+    return
+  }
+  if (!CRON_RE.test(d.schedule.trim())) {
+    formErr.value = 'cron 表达式必须是 5 段（分 时 日 月 周），如：40 7 * * *'
+    return
+  }
+  formErr.value = ''
+  emit('create', {
+    name: d.name.trim(),
+    desc: d.desc.trim(),
+    schedule: d.schedule.trim(),
+    account: d.account,
+    brief: d.brief.trim() || d.name.trim(),
+    enabled: !!d.enabled,
+  })
+  draft.value = { name: '', desc: '', schedule: '', account: d.account, brief: '', enabled: true }
+  showForm.value = false
 }
 </script>
 
@@ -24,6 +56,29 @@ function runNow(wf) {
     <div class="wHead">
       <h1 class="wTitle">已安排工作流</h1>
       <div class="wSub">{{ props.workflows.filter((w) => w.enabled).length }} 个启用中 · cron 调度</div>
+    </div>
+
+    <div class="wfOps">
+      <button class="newBtn" type="button" @click="showForm = !showForm">
+        {{ showForm ? '收起' : '＋ 新建工作流' }}
+      </button>
+    </div>
+
+    <div v-if="showForm" class="wfForm">
+      <label class="ff"><span>名称</span><input v-model="draft.name" class="fi" placeholder="数码赛道 · 每日日更" /></label>
+      <label class="ff"><span>cron</span><input v-model="draft.schedule" class="fi mono" placeholder="40 7 * * *" /></label>
+      <label class="ff"><span>账号</span>
+        <select v-model="draft.account" class="fi">
+          <option v-for="a in [...ACCOUNTS, NO_ACCOUNT]" :key="a.key" :value="a.key">{{ a.label }}</option>
+        </select>
+      </label>
+      <label class="ff"><span>描述</span><input v-model="draft.desc" class="fi" placeholder="每天 07:40 自动跑完整流水线" /></label>
+      <label class="ff"><span>任务</span><input v-model="draft.brief" class="fi" placeholder="做一条数码赛道的短视频" /></label>
+      <div v-if="formErr" class="ffErr">{{ formErr }}</div>
+      <div class="ffOps">
+        <button class="btnGhost" type="button" @click="showForm = false">取消</button>
+        <button class="btnPrimary" type="button" @click="submitForm">创建</button>
+      </div>
     </div>
 
     <div class="rows">
@@ -58,6 +113,7 @@ function runNow(wf) {
           >
             {{ runningId === wf.id ? '已触发' : '立即运行' }}
           </button>
+          <button class="delBtn" type="button" title="删除" @click="emit('delete', wf.id)">删除</button>
         </div>
       </div>
     </div>
@@ -75,6 +131,102 @@ function runNow(wf) {
 .wHead {
   max-width: 960px;
   margin: 0 auto 16px;
+}
+
+.wfOps {
+  max-width: 960px;
+  margin: 0 auto 12px;
+}
+
+.newBtn {
+  height: 30px;
+  padding: 0 14px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 999px;
+  background: var(--dsw-alias-button-elevated-fill);
+  color: var(--dsw-alias-label-primary);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.wfForm {
+  max-width: 960px;
+  margin: 0 auto 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--dsw-alias-border-l1);
+  border-radius: 12px;
+  background: var(--dsw-alias-bg-layer-1);
+}
+
+.ff {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: var(--dsw-alias-label-secondary);
+}
+
+.ff > span {
+  flex: none;
+  width: 44px;
+}
+
+.fi {
+  flex: 1;
+  height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 8px;
+  background: var(--dsw-alias-bg-base);
+  color: var(--dsw-alias-label-primary);
+  font-size: 13px;
+}
+
+.ffErr {
+  font-size: 12px;
+  color: var(--dsw-alias-state-error-primary);
+}
+
+.ffOps {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.btnPrimary {
+  height: 30px;
+  padding: 0 16px;
+  border: none;
+  border-radius: 999px;
+  background: var(--dsw-alias-button-primary-fill);
+  color: var(--dsw-alias-label-primary-foreground);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.btnGhost {
+  height: 30px;
+  padding: 0 14px;
+  border: 1px solid var(--dsw-alias-border-l3);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--dsw-alias-label-secondary);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.delBtn {
+  height: 26px;
+  padding: 0 10px;
+  border: 1px solid var(--dsw-alias-border-l2);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--dsw-alias-state-error-primary);
+  font-size: 12px;
+  cursor: pointer;
 }
 
 .wTitle {

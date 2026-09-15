@@ -5,14 +5,20 @@ const props = defineProps({
   open: { type: Boolean, default: false },
   theme: { type: String, default: 'system' },
   apiKey: { type: String, default: '' },
+  demo: { type: Boolean, default: false },
 })
 
-const emit = defineEmits(['close', 'set-theme', 'set-api-key'])
+const emit = defineEmits(['close', 'set-theme', 'set-api-key', 'set-demo'])
 
 const THEMES = [
   { key: 'dark', label: '暗色' },
   { key: 'light', label: '冷色' },
   { key: 'system', label: '跟随系统' },
+]
+
+const MODES = [
+  { key: 'real', label: '真实', value: false },
+  { key: 'demo', label: '演示', value: true },
 ]
 
 const keyDraft = ref(props.apiKey)
@@ -64,6 +70,23 @@ watch(
             {{ t.label }}
           </button>
         </div>
+      </div>
+
+      <div class="setGroup">
+        <div class="setLabel">模式</div>
+        <div class="segmented">
+          <button
+            v-for="m in MODES"
+            :key="m.key"
+            class="segBtn"
+            :class="{ on: props.demo === m.value }"
+            type="button"
+            @click="emit('set-demo', m.value)"
+          >
+            {{ m.label }}
+          </button>
+        </div>
+        <div class="setHint">真实模式连接本地后端（/api）；演示模式使用内置 Mock 数据</div>
       </div>
 
       <div class="setGroup">
@@ -138,6 +161,13 @@ watch(
   line-height: 18px;
   color: var(--dsw-alias-label-caption);
   margin-bottom: 6px;
+}
+
+.setHint {
+  margin-top: 6px;
+  font-size: 12px;
+  line-height: 18px;
+  color: var(--dsw-alias-label-caption);
 }
 
 .setField {
