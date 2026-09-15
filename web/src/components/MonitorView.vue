@@ -75,7 +75,7 @@ const fmt = (n) => (n >= 10000 ? (n / 10000).toFixed(1) + 'w' : n.toLocaleString
             <span class="stat"><AppIcon name="play" :size="12" /> {{ fmt(v.play) }}</span>
             <span class="stat"><AppIcon name="like" :size="12" /> {{ fmt(v.like) }}</span>
             <span class="stat"><AppIcon name="comment" :size="12" /> {{ fmt(v.comment) }}</span>
-            <span class="delta" :data-up="v.delta.startsWith('+')">{{ v.delta }}</span>
+            <span class="delta" :data-up="(v.delta || '').startsWith('+')">{{ v.delta }}</span>
           </div>
         </div>
       </div>

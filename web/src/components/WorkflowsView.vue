@@ -49,6 +49,30 @@ function submitForm() {
   draft.value = { name: '', desc: '', schedule: '', account: d.account, brief: '', enabled: true }
   showForm.value = false
 }
+
+function toggleForm() {
+  showForm.value = !showForm.value
+  formErr.value = ''
+}
+function cancelForm() {
+  showForm.value = false
+  formErr.value = ''
+}
+
+/* 删除两步确认：先武装，3 秒内再点才执行 */
+const armingId = ref('')
+let armTimer = null
+function onDeleteClick(id) {
+  if (armingId.value === id) {
+    armingId.value = ''
+    clearTimeout(armTimer)
+    emit('delete', id)
+    return
+  }
+  armingId.value = id
+  clearTimeout(armTimer)
+  armTimer = setTimeout(() => (armingId.value = ''), 3000)
+}
 </script>
 
 <template>
@@ -59,7 +83,7 @@ function submitForm() {
     </div>
 
     <div class="wfOps">
-      <button class="newBtn" type="button" @click="showForm = !showForm">
+      <button class="newBtn" type="button" @click="toggleForm">
         {{ showForm ? '收起' : '＋ 新建工作流' }}
       </button>
     </div>
@@ -76,7 +100,7 @@ function submitForm() {
       <label class="ff"><span>任务</span><input v-model="draft.brief" class="fi" placeholder="做一条数码赛道的短视频" /></label>
       <div v-if="formErr" class="ffErr">{{ formErr }}</div>
       <div class="ffOps">
-        <button class="btnGhost" type="button" @click="showForm = false">取消</button>
+        <button class="btnGhost" type="button" @click="cancelForm">取消</button>
         <button class="btnPrimary" type="button" @click="submitForm">创建</button>
       </div>
     </div>
@@ -113,9 +137,18 @@ function submitForm() {
           >
             {{ runningId === wf.id ? '已触发' : '立即运行' }}
           </button>
-          <button class="delBtn" type="button" title="删除" @click="emit('delete', wf.id)">删除</button>
+          <button
+            class="delBtn"
+            :data-armed="armingId === wf.id"
+            type="button"
+            :title="armingId === wf.id ? '再次点击确认删除' : '删除'"
+            @click="onDeleteClick(wf.id)"
+          >
+            {{ armingId === wf.id ? '确认删除？' : '删除' }}
+          </button>
         </div>
       </div>
+      <div v-if="!props.workflows.length" class="emptyText">暂无已安排工作流。点上方「＋ 新建工作流」，或在对话框里让总编帮你建（如「每天早上 8 点做一条数码视频」）。</div>
     </div>
   </div>
 </template>
@@ -227,6 +260,37 @@ function submitForm() {
   color: var(--dsw-alias-state-error-primary);
   font-size: 12px;
   cursor: pointer;
+}
+
+.newBtn:hover,
+.btnGhost:hover,
+.delBtn:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+}
+
+.btnPrimary:hover {
+  background: var(--dsw-alias-button-primary-hover);
+}
+
+.fi:focus {
+  outline: none;
+  border-color: var(--dsw-alias-state-business-primary);
+}
+
+.delBtn[data-armed='true'] {
+  border-color: var(--dsw-alias-state-error-primary);
+  background: var(--dsw-alias-state-error-primary);
+  color: var(--dsw-alias-label-primary-foreground);
+}
+
+.emptyText {
+  max-width: 960px;
+  margin: 0 auto;
+  padding: 24px 0;
+  font-size: 13px;
+  line-height: 20px;
+  color: var(--dsw-alias-label-tertiary);
+  text-align: center;
 }
 
 .wTitle {
