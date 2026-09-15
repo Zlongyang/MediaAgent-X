@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onBeforeUnmount, reactive, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import Sidebar from './components/Sidebar.vue'
 import HeroView from './components/HeroView.vue'
 import ChatView from './components/ChatView.vue'
@@ -10,7 +10,9 @@ import MonitorView from './components/MonitorView.vue'
 import WorkflowsView from './components/WorkflowsView.vue'
 import AccountView from './components/AccountView.vue'
 import SettingsModal from './components/SettingsModal.vue'
-import { PROJECTS, WORKFLOWS, ACCOUNTS, NO_ACCOUNT, defaultConfig } from './data/mock.js'
+import { PROJECTS, WORKFLOWS, MONITOR_VIDEOS, ACCOUNTS, NO_ACCOUNT, ACCOUNT_FANS, defaultConfig } from './data/mock.js'
+import * as api from './api/client.js'
+import { mapGateRequest, mapProject } from './api/mappers.js'
 
 /* ================= theme: dark / light / system ================= */
 const theme = ref('system')
@@ -53,6 +55,60 @@ const accountPageKey = ref('')
 const projects = ref(PROJECTS.map((p) => ({ ...p })))
 const workflows = ref(WORKFLOWS.map((w) => ({ ...w })))
 const activeProjectId = ref('')
+
+/* ================= demo / real mode ================= */
+const demoMode = ref(false)
+try {
+  demoMode.value = localStorage.getItem('max-demo-mode') === '1'
+} catch (e) {}
+
+function persistDemo() {
+  try {
+    localStorage.setItem('max-demo-mode', demoMode.value ? '1' : '0')
+  } catch (e) {}
+}
+
+const monitorVideos = ref(MONITOR_VIDEOS)
+
+function loadMockSources() {
+  projects.value = PROJECTS.map((p) => ({ ...p }))
+  workflows.value = WORKFLOWS.map((w) => ({ ...w }))
+  monitorVideos.value = MONITOR_VIDEOS
+}
+
+async function reloadSources() {
+  if (demoMode.value) {
+    loadMockSources()
+    return
+  }
+  try {
+    await api.health()
+    const [p, w, v] = await Promise.all([api.listProjects(), api.listWorkflows(), api.listMonitorVideos()])
+    projects.value = p.map(mapProject)
+    workflows.value = w
+    monitorVideos.value = v
+  } catch (e) {
+    demoMode.value = true
+    persistDemo()
+    loadMockSources()
+    showToast('后端不可达，已切演示模式')
+  }
+}
+
+async function refreshWorkflows() {
+  if (demoMode.value) return
+  try {
+    workflows.value = await api.listWorkflows()
+  } catch (e) {}
+}
+
+function setDemo(v) {
+  demoMode.value = !!v
+  persistDemo()
+  reloadSources()
+}
+
+onMounted(reloadSources)
 
 const toast = ref('')
 let toastTimer = null
@@ -299,6 +355,7 @@ async function gateWithRerun(g, rerun, seq) {
 }
 
 function onGateConfirm(payload) {
+  if (!demoMode.value) return realGateDecision('confirm', payload)
   if (!gateResolve) return
   gate.value = null
   const r = gateResolve
@@ -307,6 +364,7 @@ function onGateConfirm(payload) {
 }
 
 function onGateReject() {
+  if (!demoMode.value) return realGateDecision('reject')
   if (!gateResolve) return
   gate.value = null
   const r = gateResolve
@@ -315,7 +373,13 @@ function onGateReject() {
 }
 
 /* ================= run orchestration ================= */
-async function startRun(text, opts = {}) {
+// 双引擎分发：演示模式走本地 setTimeout 模拟，真实模式走 SSE（spec §5）
+function startRun(text, opts = {}) {
+  if (demoMode.value) return startMockRun(text, opts)
+  return startRealRun(text, opts)
+}
+
+async function startMockRun(text, opts = {}) {
   if (running.value) return
   const seq = ++runSeq
   autoMode = !!opts.auto
@@ -518,6 +582,252 @@ async function startRun(text, opts = {}) {
   }
 }
 
+/* ================= real engine (SSE) ================= */
+const STAGE_STATUS_TEXT = {
+  trend_scan: '选题猎手 正在扫描热点…',
+  script_draft: '编剧 正在撰写脚本…',
+  storyboard: '分镜师 正在拆分镜头…',
+  mpt_pipeline: '制片 正在执行流水线…',
+  packaging: '包装师 正在生成标题/标签/封面…',
+  publish: '发行人 正在上传发布…',
+  monitoring: '分析师 正在排期数据回拉…',
+  review: '分析师 正在生成复盘…',
+}
+
+let sseAbort = null
+
+function applyRunEvent(ev, proj, seq) {
+  const d = ev.data || {}
+  switch (ev.event) {
+    case 'run_started':
+      // 重连重放：服务端会补发全量历史，重置本 run 局部状态防重复累计
+      stages.value = buildStages()
+      ms.cost = { llm: 0, material: 0, tts: 0, total: 0 }
+      ms.artifacts = { audio: '', subtitle: '', final: '' }
+      ms.todos.forEach((t) => (t.done = false))
+      ms.run_id = d.run_id
+      ms.stage = 'queued'
+      break
+    case 'stage_update': {
+      const s = findStage(d.key)
+      if (s) {
+        s.status = d.status
+        if (d.duration != null) s.duration = parseFloat(d.duration)
+      }
+      ms.stage = d.key
+      if (d.status === 'active') startStatus(d.statusText || STAGE_STATUS_TEXT[d.key] || d.key)
+      else stopStatus()
+      break
+    }
+    case 'sub_update': {
+      const pipe = findStage('mpt_pipeline')
+      const sub = pipe && pipe.subs.find((x) => x.key === d.key)
+      if (sub) {
+        sub.status = d.status
+        if (d.duration != null) sub.duration = parseFloat(d.duration)
+      }
+      ms.stage = d.parent + '/' + d.key
+      if (d.status === 'active') startStatus(d.statusText || '制片 ' + d.key + '…')
+      else stopStatus()
+      break
+    }
+    case 'gate_request': {
+      const s = findStage(d.key)
+      if (s) s.status = 'gated'
+      ms.stage = d.key
+      stopStatus()
+      gate.value = mapGateRequest(d)
+      break
+    }
+    case 'gate_resolved':
+      if (gate.value && gate.value.key === d.key) gate.value = null
+      break
+    case 'cost_add':
+      addCost(d)
+      break
+    case 'artifact_set':
+      ms.artifacts[d.key] = d.path
+      break
+    case 'todo_update':
+      if (d.done) markTodo(d.id)
+      break
+    case 'message':
+      items.value.push({ type: d.type, text: d.text })
+      break
+    case 'review_ready':
+      ms.review_report = (d.tips || []).join('；') || '已生成'
+      items.value.push({ type: 'review', review: d })
+      break
+    case 'error': {
+      const s = findStage(d.stage)
+      if (s) s.status = 'failed'
+      stopStatus()
+      items.value.push({ type: 'note', text: `ERROR ${d.stage}: ${d.message}` })
+      break
+    }
+    case 'run_finished': {
+      running.value = false
+      finished.value = true
+      ms.running = false
+      stopStatus()
+      gate.value = null
+      if (d.project) {
+        const p = mapProject(d.project)
+        const i = projects.value.findIndex((x) => x.id === p.id)
+        if (i >= 0) projects.value[i] = p
+        else projects.value.unshift(p)
+      } else if (proj && d.status === 'failed') {
+        proj.status = 'failed'
+      }
+      // 以归档为准刷新一次（失败 run 保留会话占位）
+      api
+        .listProjects()
+        .then((list) => {
+          if (seq !== runSeq) return
+          const fetched = list.map(mapProject)
+          const ids = new Set(fetched.map((p) => p.id))
+          const keep = projects.value.filter((p) => p.id === sessionProjectId && !ids.has(p.id))
+          projects.value = [...keep, ...fetched]
+        })
+        .catch(() => {})
+      break
+    }
+  }
+}
+
+function degradeToMock(text, opts, seq) {
+  showToast('后端不可达，已切演示模式')
+  demoMode.value = true
+  persistDemo()
+  loadMockSources()
+  running.value = false
+  if (seq !== runSeq) return
+  return startMockRun(text, opts)
+}
+
+async function startRealRun(text, opts = {}) {
+  if (running.value) return
+  const seq = ++runSeq
+  autoMode = !!opts.auto
+  running.value = true
+  finished.value = false
+  stages.value = buildStages()
+  items.value = [{ type: 'user', text }]
+  gate.value = null
+
+  // 意图路由：周期任务 → 直接建工作流，不开流水线
+  let route
+  try {
+    route = await api.chatRoute({ text, account: account.value })
+  } catch (e) {
+    return degradeToMock(text, opts, seq)
+  }
+  checkSeq(seq)
+
+  if (route && route.kind === 'workflow' && route.workflow) {
+    const wf = route.workflow
+    items.value.push({
+      type: 'assistant',
+      text: `收到，这是周期性任务。已创建工作流「${wf.name}」（cron: ${wf.schedule} · ${accountLabel(wf.account)}），到左侧「已安排工作流」可启停或立即运行。`,
+    })
+    running.value = false
+    finished.value = true
+    ms.running = false
+    refreshWorkflows()
+    return
+  }
+
+  let runId = ''
+  try {
+    const r = await api.createRun({
+      text,
+      account: account.value,
+      autonomy: { ...ms.autonomy },
+      autoMode: false,
+    })
+    runId = r.run_id
+  } catch (e) {
+    return degradeToMock(text, opts, seq)
+  }
+  checkSeq(seq)
+
+  // 项目簿记（与 mock 引擎一致）
+  let proj = opts.project || null
+  if (!proj) {
+    proj = {
+      id: runId,
+      name: text.length > 18 ? text.slice(0, 18) + '…' : text,
+      account: account.value,
+      status: 'generating',
+      createdAt: '刚刚',
+      detail: 'live',
+      config: defaultConfig(),
+      artifacts: { audio: '', subtitle: '', cover: '', final: '' },
+      video: null,
+      pack: null,
+      stages: [],
+      shots: [],
+      logs: [],
+      snapshots: [],
+      tips: [],
+      chat: [],
+    }
+    projects.value.unshift(proj)
+    proj = projects.value[0]
+  }
+  proj.status = 'generating'
+  sessionProjectId = runId
+  activeProjectId.value = runId
+
+  ms.run_id = runId
+  ms.stage = 'queued'
+  ms.topic = ''
+  ms.cost = { llm: 0, material: 0, tts: 0, total: 0 }
+  ms.artifacts = { audio: '', subtitle: '', final: '' }
+  ms.review_report = ''
+  ms.todos.forEach((t) => (t.done = false))
+  ms.running = true
+
+  items.value.push({ type: 'pipeline' })
+
+  // SSE 消费 + 断线重连（重连由服务端重放历史，见 applyRunEvent run_started）
+  sseAbort = new AbortController()
+  let retries = 3
+  while (seq === runSeq && !finished.value) {
+    try {
+      await api.streamRun(runId, {
+        signal: sseAbort.signal,
+        onEvent: (ev) => {
+          if (seq !== runSeq) throw new StaleError()
+          applyRunEvent(ev, proj, seq)
+        },
+      })
+      break
+    } catch (e) {
+      if ((e && e.name === 'AbortError') || e instanceof StaleError || seq !== runSeq) return
+      if (finished.value || retries-- <= 0) {
+        items.value.push({ type: 'note', text: 'SSE 连接中断且重连失败，运行结果以项目归档为准。' })
+        running.value = false
+        ms.running = false
+        return
+      }
+      await sleep(800)
+    }
+  }
+}
+
+async function realGateDecision(action, payload) {
+  const g = gate.value
+  if (!g || !ms.run_id || ms.run_id === '—') return
+  gate.value = null // 乐观关卡
+  try {
+    await api.resolveGate(ms.run_id, { nonce: g.nonce, action, payload: payload || {} })
+  } catch (e) {
+    gate.value = g // 失败恢复卡片
+    showToast('闸门决议发送失败：' + (e.message || e))
+  }
+}
+
 /* ================= input & navigation ================= */
 function onSend(text) {
   if (running.value) {
@@ -541,6 +851,10 @@ function onSend(text) {
 
 function newVideo() {
   runSeq++
+  if (sseAbort) {
+    sseAbort.abort()
+    sseAbort = null
+  }
   stopStatus()
   gate.value = null
   gateResolve = null
@@ -595,27 +909,87 @@ function backFromProject() {
   view.value = 'chat'
 }
 
-function publishProject(p) {
+async function publishProject(p) {
   if (p.account === 'none') {
     showToast('请先在 Hero 页选择发布账号，再发起发布')
     return
   }
-  p.status = 'published'
-  showToast(`已发布到 ${accountLabel(p.account)}（模拟）`)
+  if (demoMode.value) {
+    p.status = 'published'
+    showToast(`已发布到 ${accountLabel(p.account)}（模拟）`)
+    return
+  }
+  try {
+    await api.publishProject(p.id)
+    p.status = 'published'
+    showToast(`已发布到 ${accountLabel(p.account)}`)
+  } catch (e) {
+    showToast('发布失败：' + (e.message || e))
+  }
 }
 
-function toggleWorkflow(id) {
+async function toggleWorkflow(id) {
   const w = workflows.value.find((x) => x.id === id)
-  if (w) w.enabled = !w.enabled
+  if (!w) return
+  if (demoMode.value) {
+    w.enabled = !w.enabled
+    return
+  }
+  try {
+    const r = await api.toggleWorkflow(id)
+    w.enabled = !!r.enabled
+  } catch (e) {
+    showToast('切换失败：' + (e.message || e))
+  }
 }
 
-function runWorkflow(wf) {
-  showToast(`已手动触发「${wf.name}」，运行进入队列（模拟）`)
+async function runWorkflow(wf) {
+  if (demoMode.value) {
+    showToast(`已手动触发「${wf.name}」，运行进入队列（模拟）`)
+    return
+  }
+  try {
+    const r = await api.runWorkflow(wf.id)
+    showToast(`已触发「${wf.name}」（${r.run_id}），完成后可在项目归档查看`)
+  } catch (e) {
+    showToast('触发失败：' + (e.message || e))
+  }
+}
+
+async function onCreateWorkflow(payload) {
+  if (demoMode.value) {
+    workflows.value.push({ id: 'wf-local-' + Date.now(), next: '—', enabled: true, ...payload })
+    showToast('已新建工作流（演示）')
+    return
+  }
+  try {
+    await api.createWorkflow(payload)
+    await refreshWorkflows()
+    showToast('已新建工作流')
+  } catch (e) {
+    showToast('创建失败：' + (e.message || e))
+  }
+}
+
+async function onDeleteWorkflow(id) {
+  if (demoMode.value) {
+    workflows.value = workflows.value.filter((w) => w.id !== id)
+    return
+  }
+  try {
+    await api.deleteWorkflow(id)
+    workflows.value = workflows.value.filter((w) => w.id !== id)
+  } catch (e) {
+    showToast('删除失败：' + (e.message || e))
+  }
 }
 
 function toggleAutonomy(key) {
   if (!running.value && !finished.value) return
   ms.autonomy[key] = !ms.autonomy[key]
+  if (!demoMode.value && running.value && ms.run_id && ms.run_id !== '—') {
+    api.setAutonomy(ms.run_id, key, ms.autonomy[key]).catch(() => {})
+  }
 }
 
 const liveForProject = computed(() => {
@@ -671,6 +1045,7 @@ const navKey = computed(() => (view.value === 'project' || view.value === 'accou
       <!-- monitor board -->
       <MonitorView
         v-else-if="view === 'monitor'"
+        :videos="monitorVideos"
         @open-project="selectProject"
       />
 
@@ -680,6 +1055,8 @@ const navKey = computed(() => (view.value === 'project' || view.value === 'accou
         :workflows="workflows"
         @toggle="toggleWorkflow"
         @run="runWorkflow"
+        @create="onCreateWorkflow"
+        @delete="onDeleteWorkflow"
       />
 
       <!-- project detail -->
@@ -700,6 +1077,8 @@ const navKey = computed(() => (view.value === 'project' || view.value === 'accou
         v-else-if="view === 'account'"
         :account-key="accountPageKey"
         :projects="projects"
+        :videos="monitorVideos"
+        :fans="demoMode ? ACCOUNT_FANS[accountPageKey] || '' : ''"
         @back="backFromProject"
         @open-project="selectProject"
       />
@@ -743,9 +1122,11 @@ const navKey = computed(() => (view.value === 'project' || view.value === 'accou
       :open="settingsOpen"
       :theme="theme"
       :api-key="apiKey"
+      :demo="demoMode"
       @close="settingsOpen = false"
       @set-theme="setTheme"
       @set-api-key="(k) => (apiKey = k)"
+      @set-demo="setDemo"
     />
   </div>
 </template>
