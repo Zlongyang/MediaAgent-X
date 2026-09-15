@@ -7,7 +7,10 @@ server.py 的 /api/workflows* 端点与 agent（程序化创建，如 workflow_i
 from __future__ import annotations
 
 import json
+import os
+import pathlib
 import re
+import tempfile
 import uuid
 
 from agent import config
@@ -25,9 +28,11 @@ def load() -> list[dict]:
 
 def save(items: list[dict]) -> None:
     config.ensure_dirs()
-    config.WORKFLOWS_JSON.write_text(
+    tmp = config.WORKFLOWS_JSON.with_suffix(".json.tmp")
+    tmp.write_text(
         json.dumps(items, ensure_ascii=False, indent=2), encoding="utf-8"
     )
+    os.replace(tmp, config.WORKFLOWS_JSON)
 
 
 def create(data: dict) -> dict:
@@ -77,6 +82,7 @@ def toggle(wf_id: str) -> dict | None:
 
 
 if __name__ == "__main__":
+    config.WORKFLOWS_JSON = pathlib.Path(tempfile.mkdtemp()) / "workflows.json"
     wf = create({"name": "自测工作流", "schedule": "40 7 * * *",
                  "desc": "冒烟自测", "account": "dy-shuma"})
     assert wf["id"].startswith("wf-") and get(wf["id"])["name"] == "自测工作流"
