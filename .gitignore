@@ -9,6 +9,8 @@ __pycache__/
 
 # 运行产物（每次 run 自动生成）
 workspace/runs/
+workspace/workflows.json
+workspace/monitor_videos.json
 
 # API 密钥（绝不入库）
 APIKEY/
