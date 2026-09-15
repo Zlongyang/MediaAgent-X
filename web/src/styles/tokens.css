@@ -1,0 +1,461 @@
+/* ==========================================================================
+   MediaAgent-X design tokens — variable structure ported from DeepSeek
+   Harness (design-platform.css); palette & material tuned to Apple's
+   design language, light theme in eye-care cream (米黄纸面 / 暖墨字 /
+   #0071e3 蓝墨点缀), dark theme in Apple black.
+   Static palette + alias mapping, light on body, dark on
+   body[data-ds-dark-theme]. Every component must consume these variables;
+   no hard-coded hex in components.
+   ========================================================================== */
+
+:root {
+  --dsw-font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
+    'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+  --ds-font-family-code: 'SF Mono', 'JetBrains Mono', 'Fira Code', Consolas,
+    'Liberation Mono', Menlo, Courier, 'PingFang SC', 'Microsoft YaHei';
+  --ds-ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --ds-transition-duration: 0.2s;
+  --ds-transition-duration-fast: 0.1s;
+  --ds-transition-duration-slow: 0.3s;
+
+  /* Font shorthands referenced by the chat styles */
+  --dsw-font-s-strong-14: 500 14px/22px var(--dsw-font-family);
+  --dsw-font-xs-13: 400 13px/18px var(--dsw-font-family);
+
+  /* The source sheet references an undefined --dsw-shadow-lv2; defined here
+     per project spec. */
+  --dsw-shadow-lv2: 0 4px 24px rgba(15, 17, 21, 0.08);
+
+  --dsh-scrollbar-width: 8px;
+}
+
+body {
+  --dsw-static-amber-100: rgb(254, 245, 231);
+  --dsw-static-amber-400: rgb(247, 173, 49);
+  --dsw-static-amber-500: rgb(245, 158, 11);
+  --dsw-static-amber-600: rgb(221, 134, 41);
+  --dsw-static-amber-900: rgb(39, 36, 31);
+  --dsw-static-blue-100: rgb(219, 234, 254);
+  --dsw-static-blue-300: rgb(147, 197, 253);
+  --dsw-static-blue-400: rgb(96, 165, 250);
+  --dsw-static-blue-450: rgb(77, 147, 248);
+  --dsw-static-blue-500: rgb(59, 130, 246);
+  --dsw-static-blue-50: rgb(239, 246, 255);
+  --dsw-static-blue-50p: rgb(234, 243, 255);
+  --dsw-static-blue-600: rgb(37, 99, 235);
+  --dsw-static-blue-75: rgb(229, 240, 255);
+  --dsw-static-blue-800: rgb(30, 64, 175);
+  --dsw-static-blue-900: rgb(14, 48, 116);
+  --dsw-static-blue-950: rgb(23, 37, 84);
+  --dsw-static-deepseek-100: rgb(228, 237, 253);
+  --dsw-static-deepseek-200: rgb(211, 226, 255);
+  --dsw-static-deepseek-300: rgb(183, 200, 254);
+  --dsw-static-deepseek-400: rgb(103, 158, 254);
+  --dsw-static-deepseek-450: rgb(86, 134, 254);
+  --dsw-static-deepseek-500: rgb(65, 118, 230);
+  --dsw-static-deepseek-50: rgb(237, 243, 254);
+  --dsw-static-deepseek-600: rgb(72, 104, 178);
+  --dsw-static-deepseek-800: rgb(52, 65, 91);
+  --dsw-static-deepseek-900: rgb(40, 49, 66);
+  --dsw-static-green-100: rgb(230, 250, 237);
+  --dsw-static-green-400: rgb(78, 209, 126);
+  --dsw-static-green-500: rgb(34, 197, 94);
+  --dsw-static-green-900: rgb(35, 60, 44);
+  --dsw-static-neutral-00: rgb(255, 255, 255);
+  --dsw-static-neutral-1000: rgb(0, 0, 0);
+  --dsw-static-neutral-100: rgb(245, 245, 245);
+  --dsw-static-neutral-150: rgb(237, 237, 237);
+  --dsw-static-neutral-200: rgb(229, 229, 229);
+  --dsw-static-neutral-250: rgb(220, 220, 220);
+  --dsw-static-neutral-300: rgb(212, 212, 212);
+  --dsw-static-neutral-400: rgb(162, 164, 166);
+  --dsw-static-neutral-500: rgb(127, 130, 135);
+  --dsw-static-neutral-50: rgb(250, 250, 250);
+  --dsw-static-neutral-550: rgb(101, 103, 107);
+  --dsw-static-neutral-600: rgb(84, 85, 87);
+  --dsw-static-neutral-700: rgb(60, 60, 61);
+  --dsw-static-neutral-800: rgb(41, 41, 41);
+  --dsw-static-neutral-850: rgb(33, 33, 35);
+  --dsw-static-neutral-900: rgb(15, 15, 15);
+  --dsw-static-neutral-bluish-00: rgb(255, 255, 255);
+  --dsw-static-neutral-bluish-1000: rgb(15, 17, 21);
+  --dsw-static-neutral-bluish-100: rgb(235, 238, 242);
+  --dsw-static-neutral-bluish-150: rgb(233, 236, 242);
+  --dsw-static-neutral-bluish-200: rgb(225, 229, 238);
+  --dsw-static-neutral-bluish-300: rgb(207, 211, 214);
+  --dsw-static-neutral-bluish-400: rgb(173, 178, 184);
+  --dsw-static-neutral-bluish-500: rgb(151, 157, 166);
+  --dsw-static-neutral-bluish-50: rgb(249, 250, 251);
+  --dsw-static-neutral-bluish-600: rgb(129, 133, 140);
+  --dsw-static-neutral-bluish-60: rgb(245, 246, 247);
+  --dsw-static-neutral-bluish-700: rgb(97, 102, 107);
+  --dsw-static-neutral-bluish-750: rgb(67, 69, 74);
+  --dsw-static-neutral-bluish-75: rgb(241, 243, 245);
+  --dsw-static-neutral-bluish-800: rgb(53, 54, 56);
+  --dsw-static-neutral-bluish-850: rgb(44, 44, 46);
+  --dsw-static-neutral-bluish-875: rgb(35, 35, 36);
+  --dsw-static-neutral-bluish-900: rgb(27, 27, 28);
+  --dsw-static-neutral-bluish-950: rgb(21, 21, 23);
+  --dsw-static-red-100: rgb(254, 226, 226);
+  --dsw-static-red-400: rgb(242, 90, 90);
+  --dsw-static-red-500: rgb(239, 68, 68);
+  --dsw-static-red-50: rgb(254, 242, 242);
+  --dsw-static-red-600: rgb(236, 19, 19);
+  --dsw-static-red-900: rgb(87, 12, 12);
+}
+
+body[data-ds-dark-theme] {
+  --dsw-static-neutral-bluish-60: rgb(249, 250, 251);
+}
+
+/* ---- Light alias mapping ---- */
+body {
+  --dsw-alias-bg-base: var(--dsw-static-neutral-bluish-00);
+  --dsw-alias-bg-layer-1: var(--dsw-static-neutral-bluish-00);
+  --dsw-alias-bg-layer-2: var(--dsw-static-neutral-bluish-00);
+  --dsw-alias-bg-layer-3: var(--dsw-static-neutral-bluish-00);
+  --dsw-alias-bg-mask-1: rgba(0, 0, 0, 0.24);
+  --dsw-alias-bg-mask-2: rgba(0, 0, 0, 0.12);
+  --dsw-alias-bg-mask-3: rgba(0, 0, 0, 0.48);
+  --dsw-alias-bg-module-platform: var(--dsw-static-neutral-bluish-60);
+  --dsw-alias-bg-overlay: var(--dsw-static-neutral-bluish-150);
+  --dsw-alias-bg-skeleton: rgba(0, 0, 0, 0.04);
+  --dsw-alias-border-inverted2: rgba(0, 0, 0, 0);
+  --dsw-alias-border-inverted: rgba(0, 0, 0, 0);
+  --dsw-alias-border-l1: rgba(0, 0, 0, 0.04);
+  --dsw-alias-border-l2-darkmode-thin: rgba(0, 0, 0, 0.1);
+  --dsw-alias-border-l2: rgba(0, 0, 0, 0.1);
+  --dsw-alias-border-l3: rgba(0, 0, 0, 0.12);
+  --dsw-alias-border-l4: rgba(0, 0, 0, 0.16);
+  --dsw-alias-brand-primary-invert: var(--dsw-static-neutral-bluish-1000);
+  --dsw-alias-brand-primary: var(--dsw-static-neutral-bluish-1000);
+  --dsw-alias-brand-text: var(--dsw-static-neutral-bluish-1000);
+  --dsw-alias-button-contrast-fill: var(--dsw-static-neutral-bluish-700);
+  --dsw-alias-button-elevated-fill: var(--dsw-static-neutral-bluish-00);
+  --dsw-alias-button-floating-fill: var(--dsw-static-neutral-bluish-00);
+  --dsw-alias-button-floating-hover: var(--dsw-static-neutral-bluish-75);
+  --dsw-alias-button-ghost-active-border: var(--dsw-static-neutral-bluish-500);
+  --dsw-alias-button-ghost-active-fill: var(--dsw-static-neutral-bluish-100);
+  --dsw-alias-button-ghost-active-hover: var(--dsw-static-neutral-bluish-150);
+  --dsw-alias-button-info-fill: var(--dsw-static-deepseek-500);
+  --dsw-alias-button-info-hover: var(--dsw-static-deepseek-400);
+  --dsw-alias-button-primary-dimmed: var(--dsw-static-neutral-bluish-100);
+  --dsw-alias-button-primary-fill: var(--dsw-alias-brand-primary);
+  --dsw-alias-button-primary-hover: var(--dsw-static-neutral-bluish-750);
+  --dsw-alias-interactive-bg-active: rgba(38, 49, 72, 0.1);
+  --dsw-alias-interactive-bg-hover-accent: rgba(38, 49, 72, 0.14);
+  --dsw-alias-interactive-bg-hover-danger: rgba(236, 19, 19, 0.05);
+  --dsw-alias-interactive-bg-hover-solid: var(--dsw-static-neutral-bluish-75);
+  --dsw-alias-interactive-bg-hover: rgba(38, 49, 72, 0.06);
+  --dsw-alias-label-caption: var(--dsw-static-neutral-bluish-400);
+  --dsw-alias-label-dimmed: var(--dsw-static-neutral-bluish-200);
+  --dsw-alias-label-primary-bluish: var(--dsw-static-blue-900);
+  --dsw-alias-label-primary-dimmed: var(--dsw-static-neutral-bluish-950);
+  --dsw-alias-label-primary-foreground: var(--dsw-static-neutral-bluish-00);
+  --dsw-alias-label-primary-inverted: var(--dsw-static-neutral-bluish-00);
+  --dsw-alias-label-primary: var(--dsw-static-neutral-bluish-1000);
+  --dsw-alias-label-secondary: var(--dsw-static-neutral-bluish-700);
+  --dsw-alias-label-tertiary: var(--dsw-static-neutral-bluish-600);
+  --dsw-alias-markdown-code-block: var(--dsw-static-neutral-bluish-50);
+  --dsw-alias-markdown-inline-code: var(--dsw-static-neutral-bluish-100);
+  --dsw-alias-scrollbar-bg-l1: var(--dsw-static-neutral-200);
+  --dsw-alias-scrollbar-bg-l2: var(--dsw-static-neutral-200);
+  --dsw-alias-scrollbar-hover-l1: var(--dsw-static-neutral-300);
+  --dsw-alias-scrollbar-hover-l2: var(--dsw-static-neutral-300);
+  --dsw-alias-state-business-primary: var(--dsw-static-deepseek-500);
+  --dsw-alias-state-business-tertiary: var(--dsw-static-deepseek-100);
+  --dsw-alias-state-error-primary: var(--dsw-static-red-600);
+  --dsw-alias-state-error-secondary: var(--dsw-static-red-400);
+  --dsw-alias-state-success-primary: var(--dsw-static-green-500);
+  --dsw-alias-state-success-secondary: var(--dsw-static-green-400);
+  --dsw-alias-state-success-tertiary: var(--dsw-static-green-100);
+  --dsw-alias-state-warn-label: var(--dsw-static-amber-600);
+  --dsw-alias-state-warn-primary: var(--dsw-static-amber-500);
+  --dsw-alias-state-warn-secondary: var(--dsw-static-amber-400);
+  --dsw-alias-state-warn-tertiary: var(--dsw-static-amber-100);
+  --dsw-alias-toast-bg: var(--dsw-static-neutral-bluish-800);
+  --dsw-alias-tooltip-bg: var(--dsw-static-neutral-bluish-850);
+  --dsw-specific-bubble-highlight: var(--dsw-static-deepseek-200);
+  --dsw-specific-bubble: var(--dsw-static-deepseek-50);
+  --dsw-specific-input-major: var(--dsw-static-neutral-bluish-00);
+  --dsw-specific-menu: var(--dsw-alias-bg-layer-3);
+  --dsw-specific-selector: var(--dsw-static-neutral-bluish-60);
+  --dsw-specific-sidebar-fill: var(--dsw-static-neutral-bluish-50);
+  --dsw-specific-sidebar-nav-item-active-accent: var(--dsw-static-deepseek-100);
+  --dsw-specific-sidebar-nav-item-active: var(--dsw-static-neutral-bluish-100);
+  --dsw-specific-sidebar-nav-item-hover: var(--dsw-static-neutral-bluish-75);
+  --dsw-specific-tip: var(--dsw-static-neutral-bluish-60);
+}
+
+/* ---- Dark alias mapping ---- */
+body[data-ds-dark-theme] {
+  --dsw-shadow-lv2: 0 4px 24px rgba(0, 0, 0, 0.4);
+
+  --dsw-alias-bg-base: var(--dsw-static-neutral-bluish-950);
+  --dsw-alias-bg-layer-1: var(--dsw-static-neutral-bluish-875);
+  --dsw-alias-bg-layer-2: var(--dsw-static-neutral-bluish-850);
+  --dsw-alias-bg-layer-3: var(--dsw-static-neutral-bluish-800);
+  --dsw-alias-bg-mask-1: rgba(0, 0, 0, 0.5);
+  --dsw-alias-bg-mask-2: rgba(0, 0, 0, 0.2);
+  --dsw-alias-bg-mask-3: rgba(0, 0, 0, 0.48);
+  --dsw-alias-bg-module-platform: var(--dsw-static-neutral-bluish-800);
+  --dsw-alias-bg-overlay: var(--dsw-static-neutral-bluish-700);
+  --dsw-alias-bg-skeleton: rgba(255, 255, 255, 0.08);
+  --dsw-alias-border-inverted2: rgba(255, 255, 255, 0.08);
+  --dsw-alias-border-inverted: rgba(255, 255, 255, 0.06);
+  --dsw-alias-border-l1: rgba(255, 255, 255, 0.06);
+  --dsw-alias-border-l2-darkmode-thin: rgba(255, 255, 255, 0.06);
+  --dsw-alias-border-l2: rgba(255, 255, 255, 0.12);
+  --dsw-alias-border-l3: rgba(255, 255, 255, 0.16);
+  --dsw-alias-border-l4: rgba(255, 255, 255, 0.2);
+  --dsw-alias-brand-primary-invert: var(--dsw-static-neutral-bluish-50);
+  --dsw-alias-brand-primary: var(--dsw-static-neutral-bluish-50);
+  --dsw-alias-brand-text: var(--dsw-static-neutral-bluish-50);
+  --dsw-alias-button-contrast-fill: var(--dsw-static-neutral-bluish-50);
+  --dsw-alias-button-elevated-fill: var(--dsw-static-neutral-bluish-750);
+  --dsw-alias-button-floating-fill: var(--dsw-static-neutral-bluish-850);
+  --dsw-alias-button-floating-hover: var(--dsw-static-neutral-bluish-800);
+  --dsw-alias-button-ghost-active-border: var(--dsw-static-neutral-bluish-600);
+  --dsw-alias-button-ghost-active-fill: var(--dsw-static-neutral-bluish-750);
+  --dsw-alias-button-ghost-active-hover: var(--dsw-static-neutral-bluish-700);
+  --dsw-alias-button-info-fill: var(--dsw-static-deepseek-400);
+  --dsw-alias-button-info-hover: var(--dsw-static-deepseek-500);
+  --dsw-alias-button-primary-dimmed: var(--dsw-static-neutral-bluish-750);
+  --dsw-alias-button-primary-fill: var(--dsw-alias-brand-primary);
+  --dsw-alias-button-primary-hover: var(--dsw-static-neutral-bluish-100);
+  --dsw-alias-interactive-bg-active: rgba(255, 255, 255, 0.14);
+  --dsw-alias-interactive-bg-hover-accent: rgba(255, 255, 255, 0.24);
+  --dsw-alias-interactive-bg-hover-danger: rgba(242, 90, 90, 0.15);
+  --dsw-alias-interactive-bg-hover-solid: var(--dsw-static-neutral-bluish-800);
+  --dsw-alias-interactive-bg-hover: rgba(255, 255, 255, 0.08);
+  --dsw-alias-label-caption: var(--dsw-static-neutral-bluish-600);
+  --dsw-alias-label-dimmed: var(--dsw-static-neutral-bluish-750);
+  --dsw-alias-label-primary-bluish: var(--dsw-static-neutral-bluish-50);
+  --dsw-alias-label-primary-dimmed: var(--dsw-static-neutral-bluish-100);
+  --dsw-alias-label-primary-foreground: var(--dsw-static-neutral-bluish-1000);
+  --dsw-alias-label-primary-inverted: var(--dsw-static-neutral-bluish-800);
+  --dsw-alias-label-primary: var(--dsw-static-neutral-bluish-50);
+  --dsw-alias-label-secondary: var(--dsw-static-neutral-bluish-300);
+  --dsw-alias-label-tertiary: var(--dsw-static-neutral-bluish-400);
+  --dsw-alias-markdown-code-block: var(--dsw-static-neutral-bluish-900);
+  --dsw-alias-markdown-inline-code: var(--dsw-static-neutral-bluish-850);
+  --dsw-alias-scrollbar-bg-l1: var(--dsw-static-neutral-700);
+  --dsw-alias-scrollbar-bg-l2: var(--dsw-static-neutral-600);
+  --dsw-alias-scrollbar-hover-l1: var(--dsw-static-neutral-600);
+  --dsw-alias-scrollbar-hover-l2: var(--dsw-static-neutral-550);
+  --dsw-alias-state-business-primary: var(--dsw-static-deepseek-400);
+  --dsw-alias-state-business-tertiary: var(--dsw-static-deepseek-800);
+  --dsw-alias-state-error-primary: var(--dsw-static-red-400);
+  --dsw-alias-state-error-secondary: var(--dsw-static-red-400);
+  --dsw-alias-state-success-primary: var(--dsw-static-green-500);
+  --dsw-alias-state-success-secondary: var(--dsw-static-green-400);
+  --dsw-alias-state-success-tertiary: var(--dsw-static-green-900);
+  --dsw-alias-state-warn-label: var(--dsw-static-amber-600);
+  --dsw-alias-state-warn-primary: var(--dsw-static-amber-500);
+  --dsw-alias-state-warn-secondary: var(--dsw-static-amber-400);
+  --dsw-alias-state-warn-tertiary: var(--dsw-static-amber-900);
+  --dsw-alias-toast-bg: var(--dsw-static-neutral-bluish-750);
+  --dsw-alias-tooltip-bg: var(--dsw-static-neutral-bluish-750);
+  --dsw-specific-bubble-highlight: var(--dsw-static-neutral-bluish-750);
+  --dsw-specific-bubble: var(--dsw-static-neutral-bluish-850);
+  --dsw-specific-input-major: var(--dsw-static-neutral-bluish-850);
+  --dsw-specific-menu: var(--dsw-alias-bg-layer-3);
+  --dsw-specific-selector: var(--dsw-static-neutral-bluish-800);
+  --dsw-specific-sidebar-fill: var(--dsw-static-neutral-bluish-900);
+  --dsw-specific-sidebar-nav-item-active-accent: var(--dsw-static-neutral-bluish-800);
+  --dsw-specific-sidebar-nav-item-active: var(--dsw-static-neutral-bluish-750);
+  --dsw-specific-sidebar-nav-item-hover: var(--dsw-static-neutral-bluish-850);
+  --dsw-specific-tip: var(--dsw-static-neutral-bluish-800);
+}
+
+/* ---- Apple theme override (later declarations win) ----
+   只改风格：结构/布局不动，alias 层整体换肤为苹果设计语言。
+   亮色（设置里的「冷色」）为护眼米黄纸感：淡黄底 + 暖墨字 + 蓝墨点缀。 */
+body {
+  /* warm ink & paper surfaces */
+  --dsw-alias-bg-base: rgb(250, 246, 235);
+  --dsw-alias-bg-layer-1: rgb(255, 253, 246);
+  --dsw-alias-bg-layer-2: rgb(241, 236, 221);
+  --dsw-alias-bg-layer-3: rgb(255, 253, 246);
+  --dsw-alias-bg-mask-1: rgba(63, 58, 46, 0.3);
+  --dsw-alias-bg-module-platform: rgb(243, 238, 224);
+  --dsw-alias-bg-overlay: rgb(234, 228, 210);
+  --dsw-alias-bg-skeleton: rgba(96, 84, 50, 0.06);
+  --dsw-alias-label-primary: rgb(63, 58, 46);
+  --dsw-alias-label-primary-dimmed: rgb(82, 76, 61);
+  --dsw-alias-label-primary-bluish: rgb(63, 58, 46);
+  --dsw-alias-label-secondary: rgb(125, 118, 99);
+  --dsw-alias-label-tertiary: rgb(150, 144, 124);
+  --dsw-alias-label-caption: rgb(179, 172, 149);
+  --dsw-alias-label-dimmed: rgb(216, 210, 191);
+  --dsw-alias-brand-primary: rgb(63, 58, 46);
+  --dsw-alias-brand-primary-invert: rgb(63, 58, 46);
+  --dsw-alias-brand-text: rgb(63, 58, 46);
+  /* blue-ink accent & states on cream */
+  --dsw-alias-state-business-primary: rgb(0, 113, 227);
+  --dsw-alias-state-business-tertiary: rgba(0, 113, 227, 0.09);
+  --dsw-alias-button-info-fill: rgb(0, 113, 227);
+  --dsw-alias-button-info-hover: rgb(0, 119, 237);
+  --dsw-alias-state-success-primary: rgb(40, 160, 75);
+  --dsw-alias-state-success-secondary: rgb(40, 160, 75);
+  --dsw-alias-state-success-tertiary: rgba(40, 160, 75, 0.12);
+  --dsw-alias-state-warn-primary: rgb(230, 138, 0);
+  --dsw-alias-state-warn-secondary: rgb(230, 138, 0);
+  --dsw-alias-state-warn-label: rgb(160, 96, 0);
+  --dsw-alias-state-warn-tertiary: rgba(230, 138, 0, 0.12);
+  --dsw-alias-state-error-primary: rgb(217, 48, 37);
+  --dsw-alias-state-error-secondary: rgb(217, 48, 37);
+  /* quiet warm hairlines & hover fills */
+  --dsw-alias-border-l1: rgba(96, 84, 50, 0.06);
+  --dsw-alias-border-l2-darkmode-thin: rgba(96, 84, 50, 0.1);
+  --dsw-alias-border-l2: rgba(96, 84, 50, 0.1);
+  --dsw-alias-border-l3: rgba(96, 84, 50, 0.14);
+  --dsw-alias-border-l4: rgba(96, 84, 50, 0.18);
+  --dsw-alias-interactive-bg-hover: rgba(96, 84, 50, 0.06);
+  --dsw-alias-interactive-bg-active: rgba(96, 84, 50, 0.1);
+  --dsw-alias-interactive-bg-hover-accent: rgba(96, 84, 50, 0.12);
+  --dsw-alias-interactive-bg-hover-solid: rgb(234, 228, 210);
+  --dsw-alias-interactive-bg-hover-danger: rgba(217, 48, 37, 0.08);
+  /* materials */
+  --dsw-specific-sidebar-fill: rgb(243, 238, 224);
+  --dsw-specific-sidebar-nav-item-active: rgb(234, 228, 210);
+  --dsw-specific-sidebar-nav-item-active-accent: rgba(0, 113, 227, 0.12);
+  --dsw-specific-sidebar-nav-item-hover: rgb(238, 233, 216);
+  --dsw-specific-selector: rgb(234, 228, 210);
+  --dsw-specific-input-major: rgb(255, 253, 246);
+  --dsw-specific-menu: rgb(255, 253, 246);
+  --dsw-specific-tip: rgb(243, 238, 224);
+  --dsw-specific-bubble: rgb(240, 234, 218);
+  --dsw-specific-bubble-highlight: rgba(96, 84, 50, 0.16);
+  --dsw-alias-markdown-code-block: rgb(243, 238, 224);
+  --dsw-alias-markdown-code-block-banner: rgb(243, 238, 224);
+  --dsw-alias-markdown-inline-code: rgb(234, 228, 210);
+  --dsw-alias-toast-bg: rgb(63, 58, 46);
+  --dsw-alias-tooltip-bg: rgb(82, 76, 61);
+  --dsw-alias-button-elevated-fill: rgb(255, 253, 246);
+  --dsw-alias-button-floating-fill: rgb(255, 253, 246);
+  --dsw-alias-button-floating-hover: rgb(243, 238, 224);
+  --dsw-alias-button-ghost-active-fill: rgb(243, 238, 224);
+  --dsw-alias-button-ghost-active-hover: rgb(234, 228, 210);
+  --dsw-alias-button-primary-dimmed: rgb(234, 228, 210);
+  --dsw-alias-button-primary-hover: rgb(82, 76, 61);
+  --dsw-alias-scrollbar-bg-l1: rgb(214, 206, 182);
+  --dsw-alias-scrollbar-bg-l2: rgb(214, 206, 182);
+  --dsw-alias-scrollbar-hover-l1: rgb(190, 180, 150);
+  --dsw-alias-scrollbar-hover-l2: rgb(190, 180, 150);
+  --dsw-shadow-lv2: 0 8px 30px rgba(96, 80, 40, 0.12);
+  /* frosted chrome (顶栏/浮层) */
+  --dsw-alias-bg-translucent: rgba(250, 246, 235, 0.75);
+}
+
+body[data-ds-dark-theme] {
+  --dsw-alias-bg-base: rgb(0, 0, 0);
+  --dsw-alias-bg-layer-1: rgb(22, 22, 23);
+  --dsw-alias-bg-layer-2: rgb(28, 28, 30);
+  --dsw-alias-bg-layer-3: rgb(44, 44, 46);
+  --dsw-alias-bg-mask-1: rgba(0, 0, 0, 0.55);
+  --dsw-alias-bg-module-platform: rgb(28, 28, 30);
+  --dsw-alias-bg-overlay: rgb(58, 58, 60);
+  --dsw-alias-label-primary: rgb(245, 245, 247);
+  --dsw-alias-label-primary-dimmed: rgb(210, 210, 215);
+  --dsw-alias-label-primary-bluish: rgb(245, 245, 247);
+  --dsw-alias-label-secondary: rgb(161, 161, 166);
+  --dsw-alias-label-tertiary: rgb(134, 134, 139);
+  --dsw-alias-label-caption: rgb(110, 110, 115);
+  --dsw-alias-label-dimmed: rgb(72, 72, 74);
+  --dsw-alias-brand-primary: rgb(245, 245, 247);
+  --dsw-alias-brand-primary-invert: rgb(245, 245, 247);
+  --dsw-alias-brand-text: rgb(245, 245, 247);
+  --dsw-alias-state-business-primary: rgb(41, 151, 255);
+  --dsw-alias-state-business-tertiary: rgba(41, 151, 255, 0.16);
+  --dsw-alias-button-info-fill: rgb(41, 151, 255);
+  --dsw-alias-button-info-hover: rgb(61, 162, 255);
+  --dsw-alias-state-success-primary: rgb(48, 209, 88);
+  --dsw-alias-state-success-secondary: rgb(48, 209, 88);
+  --dsw-alias-state-success-tertiary: rgba(48, 209, 88, 0.14);
+  --dsw-alias-state-warn-primary: rgb(255, 159, 10);
+  --dsw-alias-state-warn-secondary: rgb(255, 159, 10);
+  --dsw-alias-state-warn-label: rgb(255, 179, 64);
+  --dsw-alias-state-warn-tertiary: rgba(255, 159, 10, 0.14);
+  --dsw-alias-state-error-primary: rgb(255, 69, 58);
+  --dsw-alias-state-error-secondary: rgb(255, 69, 58);
+  --dsw-alias-border-l1: rgba(255, 255, 255, 0.08);
+  --dsw-alias-border-l2-darkmode-thin: rgba(255, 255, 255, 0.1);
+  --dsw-alias-border-l2: rgba(255, 255, 255, 0.13);
+  --dsw-alias-border-l3: rgba(255, 255, 255, 0.18);
+  --dsw-alias-border-l4: rgba(255, 255, 255, 0.24);
+  --dsw-alias-interactive-bg-hover: rgba(255, 255, 255, 0.07);
+  --dsw-alias-interactive-bg-active: rgba(255, 255, 255, 0.12);
+  --dsw-alias-interactive-bg-hover-accent: rgba(255, 255, 255, 0.16);
+  --dsw-alias-interactive-bg-hover-solid: rgb(44, 44, 46);
+  --dsw-alias-interactive-bg-hover-danger: rgba(255, 69, 58, 0.14);
+  --dsw-specific-sidebar-fill: rgb(22, 22, 23);
+  --dsw-specific-sidebar-nav-item-active: rgb(44, 44, 46);
+  --dsw-specific-sidebar-nav-item-active-accent: rgba(41, 151, 255, 0.22);
+  --dsw-specific-sidebar-nav-item-hover: rgb(34, 34, 36);
+  --dsw-specific-selector: rgb(44, 44, 46);
+  --dsw-specific-input-major: rgb(28, 28, 30);
+  --dsw-specific-menu: rgb(28, 28, 30);
+  --dsw-specific-tip: rgb(28, 28, 30);
+  --dsw-specific-bubble: rgba(41, 151, 255, 0.14);
+  --dsw-specific-bubble-highlight: rgba(41, 151, 255, 0.26);
+  --dsw-alias-markdown-code-block: rgb(22, 22, 23);
+  --dsw-alias-markdown-code-block-banner: rgb(22, 22, 23);
+  --dsw-alias-markdown-inline-code: rgb(44, 44, 46);
+  --dsw-alias-toast-bg: rgb(58, 58, 60);
+  --dsw-alias-tooltip-bg: rgb(58, 58, 60);
+  --dsw-alias-button-primary-hover: rgb(255, 255, 255);
+  --dsw-alias-button-floating-hover: rgb(44, 44, 46);
+  --dsw-shadow-lv2: 0 8px 30px rgba(0, 0, 0, 0.55);
+  --dsw-alias-bg-translucent: rgba(0, 0, 0, 0.6);
+}
+
+/* ---- Global reset ---- */
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: var(--dsw-font-family);
+  background: var(--dsw-alias-bg-base);
+  color: var(--dsw-alias-label-primary);
+  -webkit-font-smoothing: antialiased;
+  transition: background-color var(--ds-transition-duration) var(--ds-ease-in-out);
+}
+
+button {
+  font-family: inherit;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-thumb {
+  border-radius: 4px;
+  background: var(--dsw-alias-scrollbar-bg-l1);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--dsw-alias-scrollbar-hover-l1);
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

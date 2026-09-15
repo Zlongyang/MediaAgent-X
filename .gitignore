@@ -2,3 +2,10 @@
 MoneyPrinterTurbo/
 deepseek-harness/
 docs/
+
+# Python 虚拟环境
+.venv/
+__pycache__/
+
+# 运行产物（每次 run 自动生成）
+workspace/runs/
