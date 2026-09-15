@@ -3,7 +3,9 @@
 一期范围：
 - /api/runs* 五个端点（runs 创建/SSE/gate/state/autonomy）——完整可用
 - /api/projects 两个只读 + 手动 publish —— 从 workspace/runs/<id>/project.json 扫描重建，空则 []
-- /api/workflows、/api/monitor/videos —— 读 workspace/ 下持久化 JSON，无数据返回 []
+- /api/workflows* 五个端点（list/create/delete/toggle/run）—— workflows_store 持久化，run 立即触发一条 auto run
+- /api/chat —— 对话意图路由（workflow_intent.classify，失败降级 kind=run）
+- /api/monitor/videos —— 读 workspace/ 下持久化 JSON，无数据返回 []
 
 SSE 断线重连：重连后先补发该 run 的完整事件历史（事件即快照翻译结果），再继续直播。
 """
@@ -22,6 +24,7 @@ from langgraph.types import Command
 from agent import config
 from agent.graph import aiter_run, build_graph, finalize_project
 from agent.state import dump_jsonable, initial_state
+from agent import workflow_intent, workflows_store
 
 app = FastAPI(title="MediaAgent-X Agent Server", version="0.1.0")
 app.add_middleware(
@@ -100,23 +103,24 @@ async def _drive(handle: RunHandle, initial: dict) -> None:
 
 
 # ---------------------------------------------------------------- /api/runs*
+def _start_run(text: str, account: str, autonomy: dict | None, auto_mode: bool) -> str:
+    """创建并驱动一个 run（/api/runs 与 /api/workflows/{id}/run 共用）。"""
+    run_id = f"r-{uuid.uuid4().hex[:8]}"
+    state = initial_state(run_id, text, account=account, autonomy=autonomy, auto_mode=auto_mode)
+    handle = RunHandle(run_id)
+    RUNS[run_id] = handle
+    get_graph()  # 确保已编译（尽早暴露编译错误）
+    handle.task = asyncio.create_task(_drive(handle, state))
+    return run_id
+
+
 @app.post("/api/runs")
 async def create_run(body: dict = Body(...)):
     text = (body.get("text") or "").strip()
     if not text:
         raise HTTPException(400, "text 不能为空")
-    run_id = f"r-{uuid.uuid4().hex[:8]}"
-    state = initial_state(
-        run_id,
-        text,
-        account=body.get("account") or "none",
-        autonomy=body.get("autonomy"),
-        auto_mode=bool(body.get("autoMode")),
-    )
-    handle = RunHandle(run_id)
-    RUNS[run_id] = handle
-    get_graph()  # 确保已编译（尽早暴露编译错误）
-    handle.task = asyncio.create_task(_drive(handle, state))
+    run_id = _start_run(text, body.get("account") or "none",
+                        body.get("autonomy"), bool(body.get("autoMode")))
     return {"run_id": run_id}
 
 
@@ -228,7 +232,7 @@ async def publish_project(project_id: str):
     return {"ok": True, "status": project.get("status")}
 
 
-# ---------------------------------------------------------------- workflows / monitor（一期：读持久化 JSON）
+# ---------------------------------------------------------------- workflows / chat / monitor
 def _read_json_or_empty(path, default):
     try:
         return json.loads(path.read_text(encoding="utf-8"))
@@ -241,24 +245,48 @@ async def list_workflows():
     return _read_json_or_empty(config.WORKFLOWS_JSON, [])
 
 
+@app.post("/api/workflows")
+async def create_workflow(body: dict = Body(...)):
+    try:
+        wf = workflows_store.create(body)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    return {"ok": True, "workflow": wf}
+
+
+@app.delete("/api/workflows/{workflow_id}")
+async def delete_workflow(workflow_id: str):
+    if not workflows_store.delete(workflow_id):
+        raise HTTPException(404, f"workflow {workflow_id} 不存在")
+    return {"ok": True}
+
+
 @app.post("/api/workflows/{workflow_id}/toggle")
 async def toggle_workflow(workflow_id: str):
-    items = _read_json_or_empty(config.WORKFLOWS_JSON, [])
-    for w in items:
-        if w.get("id") == workflow_id:
-            w["enabled"] = not w.get("enabled", False)
-            config.WORKFLOWS_JSON.write_text(
-                json.dumps(items, ensure_ascii=False, indent=2), encoding="utf-8")
-            return {"ok": True, "enabled": w["enabled"]}
-    raise HTTPException(404, f"workflow {workflow_id} 不存在")
+    wf = workflows_store.toggle(workflow_id)
+    if wf is None:
+        raise HTTPException(404, f"workflow {workflow_id} 不存在")
+    return {"ok": True, "enabled": wf["enabled"]}
 
 
 @app.post("/api/workflows/{workflow_id}/run")
 async def run_workflow(workflow_id: str):
-    items = _read_json_or_empty(config.WORKFLOWS_JSON, [])
-    if not any(w.get("id") == workflow_id for w in items):
+    wf = workflows_store.get(workflow_id)
+    if wf is None:
         raise HTTPException(404, f"workflow {workflow_id} 不存在")
-    raise HTTPException(501, "工作流调度器一期未接入，仅支持查看与开关")
+    run_id = _start_run(wf.get("brief") or wf.get("desc") or wf["name"],
+                        wf.get("account") or "none", None, True)
+    return {"ok": True, "run_id": run_id}
+
+
+@app.post("/api/chat")
+def chat_route(body: dict = Body(...)):
+    """对话意图路由。注意必须保持 sync def：classify() 含阻塞式 LLM 调用，
+    async def 会冻结事件循环（FastAPI 对 sync 端点自动走 threadpool）。"""
+    text = (body.get("text") or "").strip()
+    if not text:
+        raise HTTPException(400, "text 不能为空")
+    return workflow_intent.classify(text, body.get("account") or "none")
 
 
 @app.get("/api/monitor/videos")

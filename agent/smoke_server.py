@@ -76,6 +76,31 @@ def main() -> int:
         g = client.post(f"/api/runs/{run_id}/gate", json={"nonce": 1, "action": "confirm"})
         check(g.status_code == 200, "POST /gate 端点可用")
 
+        # ---- 工作流端点（spec §3.2）----
+        wf = client.post("/api/workflows", json={
+            "name": "冒烟日更", "schedule": "40 7 * * *",
+            "account": "dy-shuma", "brief": "做一条数码赛道的短视频",
+        })
+        check(wf.status_code == 200
+              and wf.json().get("workflow", {}).get("id", "").startswith("wf-"),
+              "POST /api/workflows 创建成功")
+        wf_id = wf.json()["workflow"]["id"]
+        bad = client.post("/api/workflows", json={"name": "坏cron", "schedule": "每天早上"})
+        check(bad.status_code == 400, f"非法 cron → 400（实际 {bad.status_code}）")
+        tg = client.post(f"/api/workflows/{wf_id}/toggle")
+        check(tg.status_code == 200 and tg.json().get("enabled") is False,
+              "工作流 toggle 翻转为 False")
+        rr = client.post(f"/api/workflows/{wf_id}/run")
+        check(rr.status_code == 200 and rr.json().get("run_id", "").startswith("r-"),
+              "工作流立即运行 → run_id")
+        ch = client.post("/api/chat", json={"text": "做一条数码赛道的短视频", "account": "dy-shuma"})
+        check(ch.status_code == 200 and ch.json().get("kind") == "run",
+              "MockChat 下 /api/chat 降级 kind=run")
+        dl = client.delete(f"/api/workflows/{wf_id}")
+        check(dl.status_code == 200 and dl.json().get("ok") is True, "DELETE 工作流")
+        lst = client.get("/api/workflows")
+        check(all(w.get("id") != wf_id for w in lst.json()), "删除后列表已移除")
+
     print()
     if _failures:
         print(f"{FAIL} {len(_failures)} 项未过：{_failures}")
