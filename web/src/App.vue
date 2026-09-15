@@ -12,7 +12,7 @@ import AccountView from './components/AccountView.vue'
 import SettingsModal from './components/SettingsModal.vue'
 import { PROJECTS, WORKFLOWS, MONITOR_VIDEOS, ACCOUNTS, NO_ACCOUNT, ACCOUNT_FANS, defaultConfig } from './data/mock.js'
 import * as api from './api/client.js'
-import { mapGateRequest, mapProject } from './api/mappers.js'
+import { mapGateRequest, mapProject, mapReview } from './api/mappers.js'
 
 /* ================= theme: dark / light / system ================= */
 const theme = ref('system')
@@ -666,7 +666,7 @@ function applyRunEvent(ev, proj, seq) {
       break
     case 'review_ready':
       ms.review_report = (d.tips || []).join('；') || '已生成'
-      items.value.push({ type: 'review', review: d })
+      items.value.push({ type: 'review', review: mapReview(d) })
       break
     case 'error': {
       const s = findStage(d.stage)

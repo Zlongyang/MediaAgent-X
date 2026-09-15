@@ -128,6 +128,7 @@ function toggleFolder(key) {
             :key="p.id"
             class="projItem"
             :class="{ active: props.activeProjectId === p.id }"
+            :data-id="p.id"
             type="button"
             @click="emit('select-project', p.id)"
           >

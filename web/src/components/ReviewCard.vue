@@ -27,7 +27,7 @@ const yuan = (n) => '¥' + Number(n).toFixed(2)
         <tr v-for="m in props.review.metrics" :key="m.label">
           <td>{{ m.label }}</td>
           <td class="mono">{{ m.value }}</td>
-          <td :class="{ up: m.delta.startsWith('+'), down: m.delta.startsWith('-') }" class="mono">
+          <td :class="{ up: (m.delta || '').startsWith('+'), down: (m.delta || '').startsWith('-') }" class="mono">
             {{ m.delta }}
           </td>
         </tr>
