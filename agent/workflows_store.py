@@ -11,6 +11,7 @@ import os
 import pathlib
 import re
 import tempfile
+import time
 import uuid
 
 from agent import config
@@ -29,10 +30,18 @@ def load() -> list[dict]:
 def save(items: list[dict]) -> None:
     config.ensure_dirs()
     tmp = config.WORKFLOWS_JSON.with_suffix(".json.tmp")
-    tmp.write_text(
-        json.dumps(items, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
-    os.replace(tmp, config.WORKFLOWS_JSON)
+    tmp.write_text(json.dumps(items, ensure_ascii=False, indent=2), encoding="utf-8")
+    # Windows：杀软/索引器可能瞬时占用目标文件（WinError 5），短退避重试
+    delay = 0.05
+    for attempt in range(5):
+        try:
+            os.replace(tmp, config.WORKFLOWS_JSON)
+            return
+        except PermissionError:
+            if attempt == 4:
+                raise
+            time.sleep(delay)
+            delay *= 2
 
 
 def create(data: dict) -> dict:
@@ -95,4 +104,19 @@ if __name__ == "__main__":
     assert toggle(wf["id"])["enabled"] is True
     assert delete(wf["id"]) is True and get(wf["id"]) is None
     assert delete(wf["id"]) is False
+    real_replace = os.replace
+    attempts = {"n": 0}
+
+    def _flaky_replace(src, dst):
+        attempts["n"] += 1
+        if attempts["n"] <= 2:
+            raise PermissionError(5, "模拟瞬态占用")
+        return real_replace(src, dst)
+
+    os.replace = _flaky_replace
+    try:
+        save([{"id": "wf-retry", "name": "重试验证"}])
+    finally:
+        os.replace = real_replace
+    assert attempts["n"] == 3 and get("wf-retry")["name"] == "重试验证"
     print("[PASS] workflows_store 自测通过")
