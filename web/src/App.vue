@@ -88,10 +88,14 @@ async function reloadSources() {
     workflows.value = w
     monitorVideos.value = v
   } catch (e) {
-    demoMode.value = true
-    persistDemo()
-    loadMockSources()
-    showToast('后端不可达，已切演示模式')
+    if (!e.status || e.status >= 500) {
+      demoMode.value = true
+      persistDemo()
+      loadMockSources()
+      showToast('后端不可达，已切演示模式')
+    } else {
+      showToast('数据源加载失败：' + (e.message || e))
+    }
   }
 }
 
@@ -103,6 +107,7 @@ async function refreshWorkflows() {
 }
 
 function setDemo(v) {
+  if (running.value) { showToast('运行进行中，完成后再切换模式'); return }
   demoMode.value = !!v
   persistDemo()
   reloadSources()
@@ -375,8 +380,10 @@ function onGateReject() {
 /* ================= run orchestration ================= */
 // 双引擎分发：演示模式走本地 setTimeout 模拟，真实模式走 SSE（spec §5）
 function startRun(text, opts = {}) {
-  if (demoMode.value) return startMockRun(text, opts)
-  return startRealRun(text, opts)
+  const p = demoMode.value ? startMockRun(text, opts) : startRealRun(text, opts)
+  return Promise.resolve(p).catch((e) => {
+    if (!(e instanceof StaleError)) throw e
+  })
 }
 
 async function startMockRun(text, opts = {}) {
@@ -595,6 +602,7 @@ const STAGE_STATUS_TEXT = {
 }
 
 let sseAbort = null
+let runBrief = ''
 
 function applyRunEvent(ev, proj, seq) {
   const d = ev.data || {}
@@ -607,6 +615,8 @@ function applyRunEvent(ev, proj, seq) {
       ms.todos.forEach((t) => (t.done = false))
       ms.run_id = d.run_id
       ms.stage = 'queued'
+      items.value = [{ type: 'user', text: runBrief }, { type: 'pipeline' }]
+      gate.value = null
       break
     case 'stage_update': {
       const s = findStage(d.key)
@@ -615,7 +625,7 @@ function applyRunEvent(ev, proj, seq) {
         if (d.duration != null) s.duration = parseFloat(d.duration)
       }
       ms.stage = d.key
-      if (d.status === 'active') startStatus(d.statusText || STAGE_STATUS_TEXT[d.key] || d.key)
+      if (d.status === 'active' && !d.key.startsWith('gate_')) startStatus(d.statusText || STAGE_STATUS_TEXT[d.key] || d.key)
       else stopStatus()
       break
     }
@@ -680,19 +690,20 @@ function applyRunEvent(ev, proj, seq) {
         proj.status = 'failed'
       }
       // 以归档为准刷新一次（失败 run 保留会话占位）
-      api
-        .listProjects()
-        .then((list) => {
-          if (seq !== runSeq) return
-          const fetched = list.map(mapProject)
-          const ids = new Set(fetched.map((p) => p.id))
-          const keep = projects.value.filter((p) => p.id === sessionProjectId && !ids.has(p.id))
-          projects.value = [...keep, ...fetched]
-        })
-        .catch(() => {})
+      refreshProjectsFromArchive(seq)
       break
     }
   }
+}
+
+function refreshProjectsFromArchive(seq) {
+  api.listProjects().then((list) => {
+    if (seq !== runSeq) return
+    const fetched = list.map(mapProject)
+    const ids = new Set(fetched.map((p) => p.id))
+    const keep = projects.value.filter((p) => p.id === sessionProjectId && !ids.has(p.id))
+    projects.value = [...keep, ...fetched]
+  }).catch(() => {})
 }
 
 function degradeToMock(text, opts, seq) {
@@ -720,9 +731,14 @@ async function startRealRun(text, opts = {}) {
   try {
     route = await api.chatRoute({ text, account: account.value })
   } catch (e) {
-    return degradeToMock(text, opts, seq)
+    if (!e.status || e.status >= 500) return degradeToMock(text, opts, seq)
+    running.value = false
+    ms.running = false
+    showToast('启动失败：' + (e.message || e))
+    return
   }
   checkSeq(seq)
+  runBrief = text
 
   if (route && route.kind === 'workflow' && route.workflow) {
     const wf = route.workflow
@@ -747,7 +763,11 @@ async function startRealRun(text, opts = {}) {
     })
     runId = r.run_id
   } catch (e) {
-    return degradeToMock(text, opts, seq)
+    if (!e.status || e.status >= 500) return degradeToMock(text, opts, seq)
+    running.value = false
+    ms.running = false
+    showToast('启动失败：' + (e.message || e))
+    return
   }
   checkSeq(seq)
 
@@ -805,10 +825,15 @@ async function startRealRun(text, opts = {}) {
       break
     } catch (e) {
       if ((e && e.name === 'AbortError') || e instanceof StaleError || seq !== runSeq) return
-      if (finished.value || retries-- <= 0) {
-        items.value.push({ type: 'note', text: 'SSE 连接中断且重连失败，运行结果以项目归档为准。' })
+      if (finished.value) break
+      if (e.status && e.status < 500) retries = 0 // 4xx 不重试（如 run 不存在）
+      if (retries-- <= 0) {
+        gate.value = null
+        items.value.push({ type: 'note', text: 'SSE 连接中断，运行结果以项目归档为准。' })
         running.value = false
         ms.running = false
+        finished.value = true
+        refreshProjectsFromArchive(seq)
         return
       }
       await sleep(800)
@@ -898,7 +923,7 @@ function selectProject(id) {
   view.value = 'project'
   if (!p) return
   // live mock project: start an auto pipeline demo if the engine is free
-  if (p.detail === 'live' && p.status === 'generating' && !running.value && sessionProjectId !== p.id) {
+  if (demoMode.value && p.detail === 'live' && p.status === 'generating' && !running.value && sessionProjectId !== p.id) {
     startRun(p.chat[0] ? p.chat[0].text : p.name, { auto: true, project: p })
   } else if (p.id === sessionProjectId && (running.value || finished.value)) {
     // session project: showing live engine inside project view
@@ -920,8 +945,8 @@ async function publishProject(p) {
     return
   }
   try {
-    await api.publishProject(p.id)
-    p.status = 'published'
+    const r = await api.publishProject(p.id)
+    p.status = (r && r.status) || 'published'
     showToast(`已发布到 ${accountLabel(p.account)}`)
   } catch (e) {
     showToast('发布失败：' + (e.message || e))
@@ -988,7 +1013,7 @@ function toggleAutonomy(key) {
   if (!running.value && !finished.value) return
   ms.autonomy[key] = !ms.autonomy[key]
   if (!demoMode.value && running.value && ms.run_id && ms.run_id !== '—') {
-    api.setAutonomy(ms.run_id, key, ms.autonomy[key]).catch(() => {})
+    api.setAutonomy(ms.run_id, key, ms.autonomy[key]).catch(() => { showToast('闸门开关同步失败') })
   }
 }
 
