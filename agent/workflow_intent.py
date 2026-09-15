@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import json
 import re
+import warnings
 
 from agent import workflows_store
 from agent.llm import chat
@@ -38,8 +39,8 @@ def classify(text: str, account: str = "none") -> dict:
                 "enabled": True,
             })
             return {"kind": "workflow", "workflow": wf}
-    except Exception:
-        pass
+    except Exception as e:
+        warnings.warn(f"workflow_intent 降级 run：{e!r}")
     return {"kind": "run"}
 
 
