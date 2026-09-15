@@ -34,7 +34,8 @@ export function mapProject(p) {
     shots: p.shots || [],
     logs: p.logs || [],
     snapshots: p.snapshots || [],
-    tips: p.tips || (p.review_report ? [String(p.review_report).split('\n')[0]] : []),
+    // 真实 tips 未持久化，归档项目恒空数组（live 期间由 review_ready 事件驱动）
+    tips: Array.isArray(p.tips) ? p.tips : [],
     chat: (p.chat || []).filter((m) => m && (m.type === 'user' || m.type === 'assistant')),
     cost: p.cost || null,
     review_report: p.review_report || '',
