@@ -1,6 +1,8 @@
 """mpt 接入层（契约 §8）：mock / cli / inproc 三模式，MPT_MODE 一键切换。
 
-- mock（默认）：确定性 fixture，秒回；写占位工件到 workspace/runs/<run_id>/
+- mock（默认）：确定性 fixture，秒回；占位工件写到 workspace/runs/<run_id>/。
+  有 imageio-ffmpeg 时 final.mp4/voiceover.mp3 用内置 ffmpeg 合成为**真实可播**文件
+  （镜头色卡 + SHOT i/n 字幕卡），否则回退占位字节并 warn。
 - cli：子进程 `uv run python cli.py --stop-at X`（参考 01 拆解 §7 B 类 / mpt 官方
   docs/skill/mpt_agent.py 的封装）。环境不通时明确报 MPTCliError，绝不静默降级 mock。
 - inproc：import app.services（sys.path 注入 mpt 根，MemoryState 隔离），一期预留接口。
@@ -12,6 +14,7 @@ from __future__ import annotations
 import shutil
 import subprocess
 import sys
+import warnings
 from pathlib import Path
 
 from agent import config
@@ -71,8 +74,95 @@ def _write(path: Path, data: bytes) -> str:
     return str(path)
 
 
+def _ffmpeg_exe() -> str | None:
+    """imageio-ffmpeg 的内置静态 ffmpeg（免系统安装）；缺包返回 None。"""
+    try:
+        import imageio_ffmpeg
+
+        return imageio_ffmpeg.get_ffmpeg_exe()
+    except Exception:
+        return None
+
+
+def _sec(d) -> float:
+    try:
+        return max(0.5, float(str(d).rstrip("s").strip()))
+    except (TypeError, ValueError):
+        return 3.0
+
+
+_SLATE_COLORS = ["0x1f6feb", "0x8957e5", "0x1a7f37", "0xbf8700", "0xcf222e", "0x0a7ea4", "0x6e7781", "0x8250df"]
+
+
+def _render_mock_video(shots: list[dict], out: Path) -> bool:
+    """用 ffmpeg 把分镜表渲染成镜头色卡视频（真实可播 mp4）。失败返回 False。"""
+    exe = _ffmpeg_exe()
+    if not exe:
+        return False
+    out.parent.mkdir(parents=True, exist_ok=True)
+    n = len(shots)
+    inputs: list[str] = []
+    filters: list[str] = []
+    font = "fontfile='C\\:/Windows/Fonts/arial.ttf':"
+    for i, s in enumerate(shots):
+        dur = _sec(s.get("duration"))
+        color = _SLATE_COLORS[i % len(_SLATE_COLORS)]
+        inputs += ["-f", "lavfi", "-i", f"color=c={color}:s=1080x1920:d={dur}"]
+        text = f"MOCK SHOT {i + 1}/{n}  ·  {dur:g}s"
+        filters.append(f"[{i}]drawtext={font}text='{text}':fontcolor=white:fontsize=64:"
+                       f"x=(w-text_w)/2:y=(h-text_h)/2[v{i}]")
+    concat = "".join(f"[v{i}]" for i in range(n)) + f"concat=n={n}:v=1:a=0[out]"
+    cmd = [exe, "-y", *inputs, "-filter_complex", ";".join(filters) + ";" + concat,
+           "-map", "[out]", "-c:v", "libx264", "-preset", "ultrafast",
+           "-pix_fmt", "yuv420p", "-movflags", "+faststart", str(out)]
+    try:
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    if proc.returncode != 0:
+        # 字体/drawtext 兼容性兜底：去掉 drawtext 纯上色卡
+        if "drawtext" in "".join(filters):
+            plain = "".join(f"[{i}]" for i in range(n)) + f"concat=n={n}:v=1:a=0[out]"
+            cmd2 = [exe, "-y", *inputs, "-filter_complex", plain,
+                    "-map", "[out]", "-c:v", "libx264", "-preset", "ultrafast",
+                    "-pix_fmt", "yuv420p", str(out)]
+            try:
+                proc = subprocess.run(cmd2, capture_output=True, text=True, timeout=300)
+            except (OSError, subprocess.TimeoutExpired):
+                return False
+            if proc.returncode != 0:
+                return False
+        else:
+            return False
+    # 校验产物真的是 mp4（ftyp box）
+    try:
+        return out.is_file() and b"ftyp" in out.read_bytes()[:16]
+    except OSError:
+        return False
+
+
+def _render_mock_audio(seconds: float, out: Path) -> bool:
+    """生成与片长一致的静音 mp3（真实可播）。失败返回 False。"""
+    exe = _ffmpeg_exe()
+    if not exe:
+        return False
+    out.parent.mkdir(parents=True, exist_ok=True)
+    cmd = [exe, "-y", "-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo",
+           "-t", f"{max(1.0, seconds):g}", "-q:a", "9", str(out)]
+    try:
+        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+    except (OSError, subprocess.TimeoutExpired):
+        return False
+    return proc.returncode == 0 and out.is_file() and out.stat().st_size > 200
+
+
 def _mock_audio(run_dir: Path) -> str:
-    return _write(run_dir / "audio" / "voiceover.mp3", mock_content.MOCK_AUDIO_BYTES)
+    out = run_dir / "audio" / "voiceover.mp3"
+    total = sum(_sec(s.get("duration")) for s in mock_content.SHOTS)
+    if _render_mock_audio(total, out):
+        return str(out)
+    warnings.warn("mock audio: ffmpeg 不可用，回退占位字节")
+    return _write(out, mock_content.MOCK_AUDIO_BYTES)
 
 
 def _mock_subtitle(run_dir: Path) -> str:
@@ -87,7 +177,11 @@ def _mock_materials(run_dir: Path) -> list[str]:
 
 
 def _mock_video(run_dir: Path) -> str:
-    return _write(run_dir / "video" / "final.mp4", mock_content.MOCK_VIDEO_BYTES)
+    out = run_dir / "video" / "final.mp4"
+    if _render_mock_video(list(mock_content.SHOTS), out):
+        return str(out)
+    warnings.warn("mock video: ffmpeg 不可用，回退占位字节")
+    return _write(out, mock_content.MOCK_VIDEO_BYTES)
 
 
 # ---------------------------------------------------------------- 对外 API

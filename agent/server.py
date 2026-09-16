@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import re
 import shutil
 import uuid
@@ -20,7 +21,7 @@ from typing import Any
 
 from fastapi import Body, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from langgraph.types import Command
 
 from agent import config, logx
@@ -328,6 +329,37 @@ async def delete_project(project_id: str):
     shutil.rmtree(run_dir)
     _log.info("project %s 已删除", project_id)
     return {"ok": True}
+
+
+# ---------------------------------------------------------------- 工件服务 / 运行配置
+@app.get("/api/runs/{run_id}/artifacts/{rel_path:path}")
+async def run_artifact(run_id: str, rel_path: str):
+    """把 run 目录下的工件（final.mp4 等）通过 HTTP 提供给前端播放器。"""
+    if not _PROJECT_ID_RE.match(run_id):
+        raise HTTPException(400, "非法 run_id")
+    base = (config.RUNS_DIR / run_id).resolve()
+    if config.RUNS_DIR.resolve() not in base.parents:
+        raise HTTPException(400, "非法 run_id")
+    target = (base / rel_path).resolve()
+    if target != base and base not in target.parents:
+        raise HTTPException(400, "非法工件路径")
+    if not target.is_file():
+        raise HTTPException(404, "工件不存在")
+    return FileResponse(target)
+
+
+_MPT_MODES = ("mock", "cli", "inproc")
+
+
+@app.post("/api/config/mpt")
+async def set_mpt_mode(body: dict = Body(...)):
+    """运行时切换视频合成方式。config.mpt_mode() 运行期读 env，切换立即生效。"""
+    mode = str(body.get("mode") or "").strip().lower()
+    if mode not in _MPT_MODES:
+        raise HTTPException(400, f"mode 必须是 {'/'.join(_MPT_MODES)}")
+    os.environ["MPT_MODE"] = mode
+    _log.info("MPT_MODE 运行时切换 → %s", mode)
+    return {"ok": True, "mpt": mode}
 
 
 @app.get("/api/health")

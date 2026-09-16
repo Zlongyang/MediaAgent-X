@@ -61,6 +61,8 @@ cd web && npm run dev
 
 对话框除了发起单次任务，还能建工作流（如「每天早上 8 点做一条数码视频」→ 有真 LLM 时自动建成 cron 工作流；MockChat 下降级为普通 run）。工作流管理在「已安排工作流」页：新建/删除/启停/立即运行（立即运行 = 真实触发一条 run）。
 
+视频：成片闸门与项目页「视频产出」是**真播放器**（工件经 `GET /api/runs/{id}/artifacts/` 提供）。Mock 模式也用内置 ffmpeg（imageio-ffmpeg 包）合成可播的色卡占位片，缺包回退占位字节并 warn。设置页「视频合成」可切 **mpt 真实出片（cli）**，运行时切换、后续 run 立即生效（需 mpt 环境 + 对应 API key）。侧栏项目行悬停出垃圾桶，两步确认删除（进行中 run 拒删）。
+
 后端 API 一览（契约见 docs/04 §6）：
 
 ```
@@ -69,9 +71,12 @@ GET  /api/runs/{id}/events        SSE 事件流（阶段/闸门/成本/工件）
 POST /api/runs/{id}/gate          闸门决议 {nonce, action: confirm|reject, payload?}
 GET  /api/runs/{id}/state         MediaState 快照（运行状态面板数据源）
 POST /api/runs/{id}/autonomy      切换闸门开关
+GET  /api/runs/{id}/artifacts/... 工件文件服务（前端播放器数据源）
+POST /api/config/mpt              运行时切换视频合成方式 {mode: mock|cli|inproc}
 POST /api/chat                    对话意图路由 → {kind:'run'} | {kind:'workflow', workflow}
 GET  /api/projects[/{id}]         项目归档（扫描 workspace/runs 重建）
 POST /api/projects/{id}/publish   手动发布（unpublished → published）
+DELETE /api/projects/{id}         删除归档项目（进行中 run 拒删 409）
 GET  /api/workflows               工作流列表（workspace/workflows.json）
 POST /api/workflows               新建工作流 {name, desc, schedule, account, brief?, enabled?}
 DELETE /api/workflows/{id}        删除工作流

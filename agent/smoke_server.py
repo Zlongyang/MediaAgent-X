@@ -107,6 +107,25 @@ def main() -> int:
               and h.json().get("mpt") == "mock",
               f"GET /api/health 上报 llm/mpt 模式（实际 {h.json()}）")
 
+        # ---- 工件 HTTP 服务（前端播放器数据源）----
+        art = client.get(f"/api/runs/{run_id}/artifacts/video/final.mp4")
+        check(art.status_code == 200
+              and art.headers.get("content-type", "").startswith("video/mp4"),
+              f"GET 工件 final.mp4 → 200 video/mp4（实际 {art.status_code} {art.headers.get('content-type')}）")
+        art404 = client.get(f"/api/runs/{run_id}/artifacts/video/nope.mp4")
+        check(art404.status_code == 404, "工件不存在 → 404")
+        art_bad = client.get(f"/api/runs/{run_id}/artifacts/..%2F..%2Fconfig.py")
+        check(art_bad.status_code in (400, 404, 422),
+              f"工件路径穿越被拒（实际 {art_bad.status_code}）")
+
+        # ---- MPT 模式运行时切换 ----
+        m1 = client.post("/api/config/mpt", json={"mode": "cli"})
+        check(m1.status_code == 200 and m1.json().get("mpt") == "cli",
+              "POST /api/config/mpt → cli")
+        m2 = client.post("/api/config/mpt", json={"mode": "bogus"})
+        check(m2.status_code == 400, f"非法 mpt mode → 400（实际 {m2.status_code}）")
+        client.post("/api/config/mpt", json={"mode": "mock"})  # 还原，避免影响后续断言
+
         # ---- 项目删除（DELETE /api/projects/{id}）----
         dl0 = client.delete("/api/projects/r-00000000")
         check(dl0.status_code == 404, f"DELETE 不存在项目 → 404（实际 {dl0.status_code}）")
