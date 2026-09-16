@@ -43,14 +43,19 @@ def _run_sub(sub_key: str, state: MediaState, run_dir) -> dict:
     """按子任务分发到 mpt_tools（模式差异在 mpt_tools 内部屏蔽）。"""
     script = state.get("script", "")
     subject = state.get("topic") or state.get("brief", "")
+    terms = state.get("_terms_cache") or [s.get("search", "") for s in state.get("shots", [])]
     if sub_key == "terms":
         return {"terms": mpt_tools.generate_terms(subject, script)}
     if sub_key == "audio":
-        return mpt_tools.synthesize_audio(script, run_dir)
+        # cli 模式注入 mpt 的「脚本」必须是纯口播文本：mpt 自己的脚本后处理会删
+        # markdown/标题/标注（01 拆解 §3.1），但 --video-script 注入不经过那层。
+        # 分镜的 narration 字段生来就是逐镜口播稿，直接拼接即最佳 TTS 文本。
+        vo = "\n\n".join(s.get("narration", "").strip()
+                         for s in state.get("shots", []) if s.get("narration", "").strip())
+        return mpt_tools.synthesize_audio(vo or script, run_dir, subject=subject, terms=terms)
     if sub_key == "subtitle":
         return mpt_tools.make_subtitle(script, run_dir)
     if sub_key == "materials":
-        terms = state.get("_terms_cache") or [s.get("search", "") for s in state.get("shots", [])]
         return mpt_tools.fetch_materials(terms, run_dir)
     if sub_key == "video":
         return mpt_tools.compose_video(run_dir)
@@ -60,6 +65,9 @@ def _run_sub(sub_key: str, state: MediaState, run_dir) -> dict:
 def node(state: MediaState) -> dict:
     _ = load_prompt("subagents/producer.md")  # 人设即文件；mock 期仅校验可读
     run_dir = config.run_dir(state["run_id"])
+
+    if config.mpt_mode() == "cli":
+        events.message("note", "mpt 真实出片：全流程由 mpt 一次跑完（通常 2-5 分钟），各子任务在产物回读时统一补齐。")
 
     artifacts_update: dict = {}
     cost_update: dict = {"llm": 0.0, "material": 0.0, "tts": 0.0}
