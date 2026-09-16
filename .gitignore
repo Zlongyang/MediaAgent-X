@@ -11,6 +11,7 @@ __pycache__/
 workspace/runs/
 workspace/workflows.json
 workspace/monitor_videos.json
+workspace/logs/
 
 # API 密钥（绝不入库）
 APIKEY/

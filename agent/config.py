@@ -18,6 +18,8 @@ RUNS_DIR = WORKSPACE_DIR / "runs"
 PROMPTS_DIR = ROOT_DIR / "prompts"
 WORKFLOWS_JSON = WORKSPACE_DIR / "workflows.json"
 MONITOR_VIDEOS_JSON = WORKSPACE_DIR / "monitor_videos.json"
+LOGS_DIR = WORKSPACE_DIR / "logs"
+LOG_FILE = LOGS_DIR / "server.log"
 # mpt 仓库（本工作区内嵌副本；cli/inproc 模式用，mock 模式不触碰）
 MPT_ROOT = ROOT_DIR / "MoneyPrinterTurbo"
 

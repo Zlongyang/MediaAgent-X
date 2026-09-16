@@ -101,6 +101,23 @@ def main() -> int:
         lst = client.get("/api/workflows")
         check(all(w.get("id") != wf_id for w in lst.json()), "删除后列表已移除")
 
+        # ---- 日志与健康检查（logx 设计：health 上报 LLM/MPT 模式）----
+        h = client.get("/api/health")
+        check(h.status_code == 200 and h.json().get("llm") == "mock"
+              and h.json().get("mpt") == "mock",
+              f"GET /api/health 上报 llm/mpt 模式（实际 {h.json()}）")
+
+        # ---- 项目删除（DELETE /api/projects/{id}）----
+        dl0 = client.delete("/api/projects/r-00000000")
+        check(dl0.status_code == 404, f"DELETE 不存在项目 → 404（实际 {dl0.status_code}）")
+        bad_id = client.delete("/api/projects/..%2F..%2Fevil")
+        check(bad_id.status_code in (400, 404, 422),
+              f"路径穿越被拒绝（实际 {bad_id.status_code}）")
+        dl1 = client.delete(f"/api/projects/{run_id}")
+        check(dl1.status_code == 200 and dl1.json().get("ok") is True, "DELETE 已完成项目 → ok")
+        gone = client.get("/api/projects")
+        check(all(p.get("id") != run_id for p in gone.json()), "删除后 /api/projects 不再列出")
+
     print()
     if _failures:
         print(f"{FAIL} {len(_failures)} 项未过：{_failures}")

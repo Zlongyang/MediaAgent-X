@@ -10,10 +10,14 @@ from __future__ import annotations
 
 import json
 import re
+import time
 import warnings
 
 from agent import config
+from agent.logx import get_logger
 from agent.tools import mock_content
+
+_log = get_logger()
 
 
 def _mock_reply(user: str, system: str = "") -> str:
@@ -49,13 +53,16 @@ def _build_chat():
             from langchain_openai import ChatOpenAI
         except ImportError:
             warnings.warn("检测到 DEEPSEEK_API_KEY 但未安装 langchain_openai，降级 MockChat。")
+            _log.warning("LLM 模式：MockChat（有 key 但未安装 langchain_openai）")
             return MockChat()
+        _log.info("LLM 模式：DeepSeek model=%s base_url=%s", config.DEEPSEEK_MODEL, config.DEEPSEEK_BASE_URL)
         return ChatOpenAI(
             api_key=config.DEEPSEEK_API_KEY,
             base_url=config.DEEPSEEK_BASE_URL,
             model=config.DEEPSEEK_MODEL,
             temperature=0.7,
         )
+    _log.info("LLM 模式：MockChat（未配置 DEEPSEEK_API_KEY）")
     return MockChat()
 
 
@@ -72,14 +79,23 @@ def is_mock() -> bool:
 
 
 def chat(user: str, system: str = "") -> str:
-    """全项目唯一 LLM 调用入口。返回纯文本（结构化需求由调用方 json.loads）。"""
+    """全项目唯一 LLM 调用入口。返回纯文本（结构化需求由调用方 parse_llm_json）。"""
     model = get_chat()
     messages = []
     if system:
         messages.append({"role": "system", "content": system})
     messages.append({"role": "user", "content": user})
-    result = model.invoke(messages)
-    return getattr(result, "content", result)
+    tag = "MockChat" if is_mock() else config.DEEPSEEK_MODEL
+    t0 = time.perf_counter()
+    try:
+        result = model.invoke(messages)
+    except Exception as e:
+        _log.warning("LLM 调用失败 model=%s in=%d字：%r", tag, len(system) + len(user), e)
+        raise
+    out = getattr(result, "content", result)
+    _log.info("LLM model=%s in=%d字 out=%d字 %.1fs",
+              tag, len(system) + len(user), len(out or ""), time.perf_counter() - t0)
+    return out
 
 
 def load_prompt(rel_path: str) -> str:

@@ -13,6 +13,8 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
+import shutil
 import uuid
 from typing import Any
 
@@ -21,10 +23,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
 from langgraph.types import Command
 
-from agent import config
+from agent import config, logx
 from agent.graph import aiter_run, build_graph, finalize_project
 from agent.state import dump_jsonable, initial_state
 from agent import workflow_intent, workflows_store
+
+_log = logx.setup()
+_log.info("server 启动：MPT_MODE=%s，日志文件 → %s", config.mpt_mode(), config.LOG_FILE)
 
 app = FastAPI(title="MediaAgent-X Agent Server", version="0.1.0")
 app.add_middleware(
@@ -94,8 +99,10 @@ async def _drive(handle: RunHandle, initial: dict) -> None:
             if project is not None:
                 data["project"] = project
             await handle.broadcast({"event": "run_finished", "data": data})
+            _log.info("run %s 收官 status=%s", handle.run_id, data["status"])
             break
     except Exception as e:  # 驱动兜底：任何异常都以 error + failed 收场
+        _log.warning("run %s 驱动异常：%r", handle.run_id, e)
         await handle.broadcast({"event": "error", "data": {"stage": "driver", "message": str(e)}})
         await handle.broadcast({"event": "run_finished", "data": {"status": "failed"}})
     finally:
@@ -112,6 +119,7 @@ def _start_run(text: str, account: str, autonomy: dict | None, auto_mode: bool) 
     RUNS[run_id] = handle
     get_graph()  # 确保已编译（尽早暴露编译错误）
     handle.task = asyncio.create_task(_drive(handle, state))
+    _log.info("run %s 创建 account=%s auto=%s in=%d字", run_id, account, auto_mode, len(text))
     return run_id
 
 
@@ -168,6 +176,7 @@ async def resolve_gate(run_id: str, body: dict = Body(...)):
         return {"ok": False, "error": "run 未处于闸门等待"}
     resume = {"action": action, "payload": body.get("payload") or {}}
     handle.inbox.put_nowait(Command(resume=resume))
+    _log.info("run %s gate 决议 action=%s nonce=%s", run_id, action, body.get("nonce"))
     return {"ok": True}
 
 
@@ -299,6 +308,30 @@ async def monitor_videos(account: str | None = None):
     return videos
 
 
+# ---------------------------------------------------------------- 项目删除
+_PROJECT_ID_RE = re.compile(r"^[\w-]+$")
+
+
+@app.delete("/api/projects/{project_id}")
+async def delete_project(project_id: str):
+    """删除归档项目 = 移除 workspace/runs/<id>/ 整个目录。进行中的 run 拒绝（409）。"""
+    if not _PROJECT_ID_RE.match(project_id):
+        raise HTTPException(400, "非法 project_id")
+    run_dir = (config.RUNS_DIR / project_id).resolve()
+    if config.RUNS_DIR.resolve() not in run_dir.parents:
+        raise HTTPException(400, "非法 project_id")
+    if not run_dir.is_dir():
+        raise HTTPException(404, f"project {project_id} 不存在")
+    handle = RUNS.get(project_id)
+    if handle is not None and not handle.closed:
+        raise HTTPException(409, "run 进行中，不能删除")
+    shutil.rmtree(run_dir)
+    _log.info("project %s 已删除", project_id)
+    return {"ok": True}
+
+
 @app.get("/api/health")
 async def health():
-    return {"ok": True}
+    from agent.llm import is_mock
+
+    return {"ok": True, "llm": "mock" if is_mock() else config.DEEPSEEK_MODEL, "mpt": config.mpt_mode()}
