@@ -3,7 +3,7 @@
 import { computed, ref } from 'vue'
 import AppIcon from './AppIcon.vue'
 import LineChart from './LineChart.vue'
-import { ACCOUNTS } from '../data/mock.js'
+import { ACCOUNTS } from '../data/constants.js'
 
 const props = defineProps({
   videos: { type: Array, default: () => [] },

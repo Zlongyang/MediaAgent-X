@@ -1,7 +1,7 @@
 <script setup>
 // 栏目页 · 已安排工作流（cron 风格）
 import { ref } from 'vue'
-import { ACCOUNTS, NO_ACCOUNT } from '../data/mock.js'
+import { ACCOUNTS, NO_ACCOUNT } from '../data/constants.js'
 
 const props = defineProps({
   workflows: { type: Array, required: true },

@@ -57,8 +57,6 @@ export const listMonitorVideos = (account) =>
 export const chatRoute = ({ text, account }) =>
   req('/chat', { method: 'POST', body: JSON.stringify({ text, account }) })
 
-export const setMptMode = (mode) => req('/config/mpt', { method: 'POST', body: JSON.stringify({ mode }) })
-
 // SSE 消费：逐帧回调 {event, data}；AbortError 上抛（调用方识别主动中断）。
 export async function streamRun(runId, { onEvent, signal }) {
   const res = await fetch(`${BASE}/runs/${runId}/events`, { signal })

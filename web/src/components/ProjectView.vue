@@ -7,7 +7,7 @@ import WorkbenchPanel from './WorkbenchPanel.vue'
 import ProjectOutput from './ProjectOutput.vue'
 import ProjectDetail from './ProjectDetail.vue'
 import ProjectMonitor from './ProjectMonitor.vue'
-import { ACCOUNTS, NO_ACCOUNT } from '../data/mock.js'
+import { ACCOUNTS, NO_ACCOUNT } from '../data/constants.js'
 
 const props = defineProps({
   project: { type: Object, required: true },

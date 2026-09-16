@@ -19,49 +19,45 @@
 | 必需性 | 依赖 | 说明 |
 |---|---|---|
 | ✅ 必需 | Node.js + npm | 跑前端（`web/` 依赖已装好，可 `npm i` 重建） |
-| ✅ 必需 | Python 3.12（Kimi Work 管理版） | `langgraph / langchain_core / fastapi / uvicorn` **已安装**，无需再装 |
-| ⬜ 可选 | `DEEPSEEK_API_KEY` | 不配也能跑：LLM 自动降级为确定性 Mock（离线演示模式） |
-| ⬜ 可选 | uv + ffmpeg | 仅「真实出片」需要：给 mpt 配环境用 |
-| ⬜ 可选 | mpt 的各 API Key | Pexels 素材 key、LLM key 等，填进 mpt 的 `config.toml`（首次启动自动从 `config.example.toml` 生成） |
+| ✅ 必需 | Python 3.12（项目 `.venv`，`uv venv` 重建） | `langgraph / langchain_core / fastapi / uvicorn / langchain-openai / imageio-ffmpeg` |
+| ✅ 必需 | `DEEPSEEK_API_KEY` | **mock 模式已移除**：无 key 时后端明确报错（`missing-key`）。可配 `DEEPSEEK_BASE_URL`/`DEEPSEEK_MODEL` 换任意 OpenAI 兼容端点 |
+| ✅ 出片必需 | mpt 的 API Key | Pexels 素材 key 等，填进 `MoneyPrinterTurbo/config.toml`（`video_source=pexels`）；TTS 用 edge-tts 免费无需 key |
+| ⬜ 可选 | uv | mpt 子进程调用链（`uv run python cli.py`）依赖它 |
+| ⬜ 可选 | `AGENT_TEST_DOUBLE=1` | 离线测试替身（MockChat + MPT 占位视频），仅供冒烟/e2e/无网演示，**不属于产品运行形态** |
 
-## 2. 三种运行形态
+## 2. 两种运行形态
 
-### 形态 A：最快体验（零配置，1 分钟）
+### 形态 A：离线冒烟（测试替身，零配置）
 
-后端 CLI 全流程冒烟，不需要任何 key、不需要 mpt：
+后端 CLI 全流程冒烟，不需要任何 key、不需要真 mpt：
 
 ```bash
-# 全自动模式：4 道闸门全部自动放行，12 节点跑到底
+# --mock = 开启测试替身（AGENT_TEST_DOUBLE + MPT_MODE=mock），确定性假数据
 python -m agent.cli --mock --auto "做一条数码赛道的短视频"
 ```
 
-跑完后看产物：`workspace/runs/<run_id>/` 下有 `script.md`、`shots.json`、`video/final.mp4`、`review.md` 等。
+跑完后看产物：`workspace/runs/<run_id>/` 下有 `script.md`、`shots.json`、`video/final.mp4`（内置 ffmpeg 合成的色卡占位片）、`review.md` 等。
 
-体验人工闸门：
-
-```bash
-python -m agent.cli --mock --no-auto "做一条数码赛道的短视频"
-# 停在「选题确认」闸门，打印 resume 提示后退出
-# 恢复方法见输出提示（Command(resume=...) + thread_id）
-```
-
-### 形态 B：前端 + 后端联调（日常开发）
-
-开两个终端：
+### 形态 B：前端 + 后端（真实运行，日常形态）
 
 ```bash
-# 终端 1：后端 API + SSE 服务（默认 8000 端口；无 DEEPSEEK_API_KEY 时 LLM 自动 Mock）
+# ① mpt 首次准备（在 MoneyPrinterTurbo/ 下）：uv sync --frozen，
+#    并把 Pexels key 填进 config.toml（llm_provider=deepseek 时填 deepseek_api_key）
+# ② 配 agent 的 LLM
+export DEEPSEEK_API_KEY=sk-...
+
+# 终端 1：后端 API + SSE 服务（默认 8000 端口；MPT_MODE 默认 cli=真实出片）
 PYTHONUTF8=1 .venv/Scripts/python.exe -m uvicorn agent.server:app --host 127.0.0.1 --port 8000
 
 # 终端 2：前端（Vite dev server，已配 /api → 127.0.0.1:8000 代理，可用 VITE_API_TARGET 改）
 cd web && npm run dev
 ```
 
-前端默认**真实模式**：对话框发起真实 run，SSE 驱动流水线/闸门/成本；设置页可切**演示模式**（纯前端 Mock，无后端也能跑）；后端不可达时自动降级演示并 toast 提示。
+前端只有真实模式：对话框发起真实 run（真 LLM 写选题/脚本/分镜，mpt 真出片——60s 视频约 10-20 分钟），SSE 驱动流水线/闸门/成本；后端不可达时**诚实报错**（不再降级假数据）。
 
-对话框除了发起单次任务，还能建工作流（如「每天早上 8 点做一条数码视频」→ 有真 LLM 时自动建成 cron 工作流；MockChat 下降级为普通 run）。工作流管理在「已安排工作流」页：新建/删除/启停/立即运行（立即运行 = 真实触发一条 run）。
+对话框除了发起单次任务，还能建工作流（如「每天早上 8 点做一条数码视频」→ LLM 意图路由自动建成 cron 工作流；判不准降级为普通 run）。工作流管理在「已安排工作流」页：新建/删除/启停/立即运行（立即运行 = 真实触发一条 run）。
 
-视频：成片闸门与项目页「视频产出」是**真播放器**（工件经 `GET /api/runs/{id}/artifacts/` 提供）。Mock 模式也用内置 ffmpeg（imageio-ffmpeg 包）合成可播的色卡占位片，缺包回退占位字节并 warn。设置页「视频合成」可切 **mpt 真实出片（cli）**，运行时切换、后续 run 立即生效（需 mpt 环境 + 对应 API key）。侧栏项目行悬停出垃圾桶，两步确认删除（进行中 run 拒删）。
+视频：成片闸门与项目页「视频产出」是**真播放器**（工件经 `GET /api/runs/{id}/artifacts/` 提供）。侧栏项目行悬停出垃圾桶，两步确认删除（进行中 run 拒删）。
 
 后端 API 一览（契约见 docs/04 §6）：
 
@@ -72,7 +68,6 @@ POST /api/runs/{id}/gate          闸门决议 {nonce, action: confirm|reject, p
 GET  /api/runs/{id}/state         MediaState 快照（运行状态面板数据源）
 POST /api/runs/{id}/autonomy      切换闸门开关
 GET  /api/runs/{id}/artifacts/... 工件文件服务（前端播放器数据源）
-POST /api/config/mpt              运行时切换视频合成方式 {mode: mock|cli|inproc}
 POST /api/chat                    对话意图路由 → {kind:'run'} | {kind:'workflow', workflow}
 GET  /api/projects[/{id}]         项目归档（扫描 workspace/runs 重建）
 POST /api/projects/{id}/publish   手动发布（unpublished → published）
@@ -83,36 +78,18 @@ DELETE /api/workflows/{id}        删除工作流
 POST /api/workflows/{id}/toggle   启停切换
 POST /api/workflows/{id}/run      立即运行 → {ok, run_id}（真实触发）
 GET  /api/monitor/videos          数据监控（读 workspace/monitor_videos.json，空则 []）
-GET  /api/health                  健康检查
-```
-
-### 形态 C：真实出片（接 mpt + 真 LLM）
-
-```bash
-# ① 配 mpt 环境（在 MoneyPrinterTurbo/ 下，用它自己的 uv 环境）
-cd MoneyPrinterTurbo && uv sync --frozen
-#    首次运行自动生成 config.toml，填入 LLM key / Pexels key 等
-
-# ② 配 agent 的 LLM（任选其一）
-set DEEPSEEK_API_KEY=sk-...        :: Windows cmd
-$env:DEEPSEEK_API_KEY="sk-..."     # PowerShell
-export DEEPSEEK_API_KEY=sk-...     # bash
-
-# ③ 切换 mpt 接入模式（默认 mock）
-export MPT_MODE=cli                # 子进程调 mpt 的 cli.py --stop-at（推荐先做）
-# export MPT_MODE=inproc           # 进程内 import（需 mpt 依赖可被 python 直接 import）
-
-python -m agent.cli --auto "做一条数码赛道的短视频"
+GET  /api/health                  健康检查（含 llm: 模型名|missing-key|test-double, mpt 模式）
 ```
 
 ## 3. 环境变量总表
 
 | 变量 | 默认 | 作用 |
 |---|---|---|
-| `MPT_MODE` | `mock` | mpt 接入模式：`mock`（确定性演示）/ `cli`（子进程）/ `inproc`（进程内，预留） |
-| `DEEPSEEK_API_KEY` | 空 | 有了就走真 DeepSeek；没有自动 Mock，全流程照样跑通 |
+| `DEEPSEEK_API_KEY` | 空 | **必需**：缺失时 `chat()` 明确报错，health 报 `missing-key` |
 | `DEEPSEEK_BASE_URL` | `https://api.deepseek.com` | 可换任意 OpenAI 兼容端点 |
 | `DEEPSEEK_MODEL` | `deepseek-chat` | 模型名 |
+| `MPT_MODE` | `cli` | mpt 接入模式：`cli`（子进程真实出片）/ `inproc`（进程内，预留）。`mock` 仅测试替身可用 |
+| `AGENT_TEST_DOUBLE` | 关 | `=1` 时启用测试替身（MockChat + MPT 占位视频），供冒烟/e2e 离线确定性运行 |
 | `AGENT_SQLITE` | 关 | `=1` 时用 SQLite 持久化运行状态（需 `pip install langgraph-checkpoint-sqlite`，缺包自动回退内存版） |
 
 ## 4. 常用命令速查
@@ -141,13 +118,15 @@ cd web && npm run build        # 构建
 |---|---|
 | 子代理人设/风格 | `prompts/subagents/*.md`、`prompts/SYSTEM.md`（运行时读取，改完即生效） |
 | 增删流水线节点 | `agent/stages/` 加一个文件 + `agent/stages/__init__.py` 的 `STAGE_REGISTRY` 注册一行 |
-| 演示数据（mock 选题/脚本/分镜） | `agent/tools/mock_content.py` |
+| 测试夹具（替身输出/冒烟 fixture） | `agent/tools/mock_content.py`（仅 `AGENT_TEST_DOUBLE=1` 时使用） |
 | mpt 接入方式 | `agent/tools/mpt_tools.py`（stage 代码无感知） |
 | 换 LLM provider | 只动 `agent/llm.py` 的 `chat()` |
 
 ## 6. 常见问题
 
-- **`MPT_MODE=cli` 报 `MPTCliError`**：mpt 环境没配好（先做形态 C 的第①步）；报错是刻意的，不会静默降级成 mock。
+- **`RuntimeError: 未配置 DEEPSEEK_API_KEY`**：mock 模式已移除，先配 key（或离线测试置 `AGENT_TEST_DOUBLE=1`）。
+- **`MPT_MODE=cli` 报 `MPTCliError`**：mpt 环境没配好（先做形态 B 的第①步）；报错是刻意的，不会静默降级。
+- **出片很慢**：真实出片 = Pexels 下载 + TTS + 合成编码，60s 视频约 10-20 分钟，属正常。
 - **`MPT_MODE=inproc` 报缺 `loguru` 等**：说明当前 Python 不是 mpt 的环境，用 cli 模式或配 mpt 的 venv。
 - **断线续跑**：默认内存 checkpointer，重启丢 run；`AGENT_SQLITE=1` 后按 `thread_id` 恢复。
 - **端口冲突**：后端换 `--port`，前端 vite 默认 5173，互不冲突。

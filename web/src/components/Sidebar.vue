@@ -3,7 +3,7 @@ import { computed, reactive, ref } from 'vue'
 import AppLogo from './AppLogo.vue'
 import AppIcon from './AppIcon.vue'
 import StatusBadge from './StatusBadge.vue'
-import { ACCOUNTS, NO_ACCOUNT } from '../data/mock.js'
+import { ACCOUNTS, NO_ACCOUNT } from '../data/constants.js'
 
 const props = defineProps({
   collapsed: { type: Boolean, default: false },

@@ -3,13 +3,12 @@
 import { computed } from 'vue'
 import StatusBadge from './StatusBadge.vue'
 import LineChart from './LineChart.vue'
-import { ACCOUNTS, NO_ACCOUNT } from '../data/mock.js'
+import { ACCOUNTS, NO_ACCOUNT } from '../data/constants.js'
 
 const props = defineProps({
   accountKey: { type: String, required: true },
   projects: { type: Array, default: () => [] },
   videos: { type: Array, default: () => [] },
-  fans: { type: String, default: '' }, // 真实模式无粉丝数据 → 空串不展示
 })
 
 const emit = defineEmits(['back', 'open-project'])
@@ -18,7 +17,6 @@ const account = computed(
   () => [...ACCOUNTS, NO_ACCOUNT].find((a) => a.key === props.accountKey) || NO_ACCOUNT
 )
 const isNone = computed(() => props.accountKey === 'none')
-const fans = computed(() => props.fans || null)
 
 const acctProjects = computed(() => props.projects.filter((p) => p.account === props.accountKey))
 const acctVideos = computed(() => props.videos.filter((v) => v.account === props.accountKey))
@@ -60,7 +58,6 @@ const fmt = (n) => (n >= 10000 ? (n / 10000).toFixed(1) + 'w' : n.toLocaleString
           <h1 class="aName">{{ account.label }}</h1>
           <div class="aSub">
             平台 {{ account.platform }}
-            <template v-if="fans"> · 粉丝 {{ fans }}</template>
             <template v-if="isNone"> · 未绑定发布账号的项目</template>
           </div>
         </div>

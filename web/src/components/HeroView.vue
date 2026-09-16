@@ -2,7 +2,7 @@
 import { computed, ref } from 'vue'
 import AppLogo from './AppLogo.vue'
 import Composer from './Composer.vue'
-import { ACCOUNTS, NO_ACCOUNT } from '../data/mock.js'
+import { ACCOUNTS, NO_ACCOUNT } from '../data/constants.js'
 
 const props = defineProps({
   account: { type: String, default: 'none' },

@@ -1,5 +1,5 @@
 // 后端 → 前端的形状翻译（spec §4.2）。
-import { defaultConfig } from '../data/mock.js'
+import { defaultConfig } from '../data/constants.js'
 
 // 工件绝对/相对路径 → 前端可播的 HTTP URL（后端 /api/runs/{id}/artifacts/ 服务）
 export function artifactUrl(p) {

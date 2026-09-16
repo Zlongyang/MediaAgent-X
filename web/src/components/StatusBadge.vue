@@ -1,5 +1,5 @@
 <script setup>
-import { STATUS } from '../data/mock.js'
+import { STATUS } from '../data/constants.js'
 
 const props = defineProps({
   status: { type: String, required: true },

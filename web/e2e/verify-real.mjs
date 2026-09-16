@@ -1,5 +1,5 @@
 /* E2E verify-real: 真实模式（前端 → 真实后端 SSE）全链路验收。
-   前置：后端已起（MockChat，无 key）且 vite dev 已起（proxy → 后端）。
+   前置：后端已起（AGENT_TEST_DOUBLE=1 + MPT_MODE=mock，无 key）且 vite dev 已起（proxy → 后端）。
    Usage: BASE_URL=http://localhost:5302/ node e2e/verify-real.mjs */
 import puppeteer from 'puppeteer-core'
 import { mkdirSync } from 'node:fs'
@@ -33,11 +33,6 @@ page.on('pageerror', (e) => console.error('PAGE ERROR:', e.message))
 let step = 'load'
 try {
   await page.goto(BASE, { waitUntil: 'networkidle0' })
-
-  // 0. 确保真实模式（默认即是；清掉可能的本地残留）
-  step = 'real-mode'
-  await page.evaluate(() => localStorage.setItem('max-demo-mode', '0'))
-  await page.reload({ waitUntil: 'networkidle0' })
 
   // 1. hero → 发任务
   step = 'send'

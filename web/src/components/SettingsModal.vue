@@ -5,26 +5,14 @@ const props = defineProps({
   open: { type: Boolean, default: false },
   theme: { type: String, default: 'system' },
   apiKey: { type: String, default: '' },
-  demo: { type: Boolean, default: false },
-  mpt: { type: String, default: 'mock' },
 })
 
-const emit = defineEmits(['close', 'set-theme', 'set-api-key', 'set-demo', 'set-mpt'])
+const emit = defineEmits(['close', 'set-theme', 'set-api-key'])
 
 const THEMES = [
   { key: 'dark', label: '暗色' },
   { key: 'light', label: '冷色' },
   { key: 'system', label: '跟随系统' },
-]
-
-const MODES = [
-  { key: 'real', label: '真实', value: false },
-  { key: 'demo', label: '演示', value: true },
-]
-
-const MPT_MODES = [
-  { key: 'mock', label: 'Mock 占位成片' },
-  { key: 'cli', label: 'mpt 真实出片' },
 ]
 
 const keyDraft = ref(props.apiKey)
@@ -76,40 +64,6 @@ watch(
             {{ t.label }}
           </button>
         </div>
-      </div>
-
-      <div class="setGroup">
-        <div class="setLabel">模式</div>
-        <div class="segmented">
-          <button
-            v-for="m in MODES"
-            :key="m.key"
-            class="segBtn"
-            :class="{ on: props.demo === m.value }"
-            type="button"
-            @click="emit('set-demo', m.value)"
-          >
-            {{ m.label }}
-          </button>
-        </div>
-        <div class="setHint">真实模式连接本地后端（/api）；演示模式使用内置 Mock 数据</div>
-      </div>
-
-      <div class="setGroup">
-        <div class="setLabel">视频合成</div>
-        <div class="segmented">
-          <button
-            v-for="m in MPT_MODES"
-            :key="m.key"
-            class="segBtn"
-            :class="{ on: props.mpt === m.key }"
-            type="button"
-            @click="emit('set-mpt', m.key)"
-          >
-            {{ m.label }}
-          </button>
-        </div>
-        <div class="setHint">Mock = 本地合成占位色卡片，秒出；mpt 真实出片（cli）需要 mpt 环境 + 对应 API key。切换对之后的 run 立即生效</div>
       </div>
 
       <div class="setGroup">
