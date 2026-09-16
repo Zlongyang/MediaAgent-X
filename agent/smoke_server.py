@@ -13,7 +13,11 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
+
+os.environ.setdefault("AGENT_TEST_DOUBLE", "1")
+os.environ.setdefault("MPT_MODE", "mock")
 
 from fastapi.testclient import TestClient
 
@@ -101,9 +105,9 @@ def main() -> int:
         lst = client.get("/api/workflows")
         check(all(w.get("id") != wf_id for w in lst.json()), "删除后列表已移除")
 
-        # ---- 日志与健康检查（logx 设计：health 上报 LLM/MPT 模式）----
+        # ---- 日志与健康检查（health 上报 LLM/MPT 模式）----
         h = client.get("/api/health")
-        check(h.status_code == 200 and h.json().get("llm") == "mock"
+        check(h.status_code == 200 and h.json().get("llm") == "test-double"
               and h.json().get("mpt") == "mock",
               f"GET /api/health 上报 llm/mpt 模式（实际 {h.json()}）")
 
@@ -117,14 +121,6 @@ def main() -> int:
         art_bad = client.get(f"/api/runs/{run_id}/artifacts/..%2F..%2Fconfig.py")
         check(art_bad.status_code in (400, 404, 422),
               f"工件路径穿越被拒（实际 {art_bad.status_code}）")
-
-        # ---- MPT 模式运行时切换 ----
-        m1 = client.post("/api/config/mpt", json={"mode": "cli"})
-        check(m1.status_code == 200 and m1.json().get("mpt") == "cli",
-              "POST /api/config/mpt → cli")
-        m2 = client.post("/api/config/mpt", json={"mode": "bogus"})
-        check(m2.status_code == 400, f"非法 mpt mode → 400（实际 {m2.status_code}）")
-        client.post("/api/config/mpt", json={"mode": "mock"})  # 还原，避免影响后续断言
 
         # ---- 项目删除（DELETE /api/projects/{id}）----
         dl0 = client.delete("/api/projects/r-00000000")

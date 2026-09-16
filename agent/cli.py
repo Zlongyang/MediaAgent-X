@@ -17,6 +17,7 @@ import uuid
 # --mock 必须在导入 agent 模块前生效（mpt_tools 运行时读 env，双保险）
 if "--mock" in sys.argv:
     os.environ["MPT_MODE"] = "mock"
+    os.environ.setdefault("AGENT_TEST_DOUBLE", "1")
 
 from agent import config, graph as graph_mod
 from agent.state import initial_state

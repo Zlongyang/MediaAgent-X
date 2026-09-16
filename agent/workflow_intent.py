@@ -45,7 +45,10 @@ def classify(text: str, account: str = "none") -> dict:
 
 
 if __name__ == "__main__":
-    # MockChat（无 DEEPSEEK_API_KEY）下必须确定性降级 run
+    # 测试替身（MockChat）下必须确定性降级 run
+    import os
+
+    os.environ.setdefault("AGENT_TEST_DOUBLE", "1")
     assert classify("做一条数码赛道的短视频") == {"kind": "run"}
-    assert classify("每天早上 8 点做一条数码视频") == {"kind": "run"}  # mock 不会输出 JSON
-    print("[PASS] workflow_intent 自测通过（MockChat 降级 kind=run）")
+    assert classify("每天早上 8 点做一条数码视频") == {"kind": "run"}  # 替身不会输出 JSON
+    print("[PASS] workflow_intent 自测通过（测试替身降级 kind=run）")

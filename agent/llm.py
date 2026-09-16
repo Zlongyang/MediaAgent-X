@@ -22,12 +22,14 @@ _log = get_logger()
 
 def _mock_reply(user: str, system: str = "") -> str:
     text = f"{system}\n{user}"
+    # 用各 stage 指令里的高区分度短语路由，顺序即优先级（打包必须早于分镜：
+    # packaging 的 prompt 附带脚本正文，可能携带「分镜」字样——冒烟曾因此撞线）
     if "候选选题" in text or "热点扫描" in text:
         return json.dumps(mock_content.TOPIC_CANDIDATES, ensure_ascii=False)
-    if "分镜" in text or "镜头表" in text:
-        return json.dumps(mock_content.SHOTS, ensure_ascii=False)
-    if "打包" in text or "标题" in text and "标签" in text:
+    if "恰好三键" in text or ("打包" in text and "hashtags" in text):
         return json.dumps(mock_content.PACK_LLM_RESULT, ensure_ascii=False)
+    if "镜头表" in text or "分镜" in text:
+        return json.dumps(mock_content.SHOTS, ensure_ascii=False)
     if "复盘" in text:
         return mock_content.REVIEW_TEXT
     if "脚本" in text or "编剧" in text:
@@ -51,10 +53,8 @@ def _build_chat():
     if config.has_llm_key():
         try:
             from langchain_openai import ChatOpenAI
-        except ImportError:
-            warnings.warn("检测到 DEEPSEEK_API_KEY 但未安装 langchain_openai，降级 MockChat。")
-            _log.warning("LLM 模式：MockChat（有 key 但未安装 langchain_openai）")
-            return MockChat()
+        except ImportError as e:
+            raise RuntimeError("检测到 DEEPSEEK_API_KEY 但未安装 langchain_openai") from e
         _log.info("LLM 模式：DeepSeek model=%s base_url=%s", config.DEEPSEEK_MODEL, config.DEEPSEEK_BASE_URL)
         return ChatOpenAI(
             api_key=config.DEEPSEEK_API_KEY,
@@ -62,8 +62,10 @@ def _build_chat():
             model=config.DEEPSEEK_MODEL,
             temperature=0.7,
         )
-    _log.info("LLM 模式：MockChat（未配置 DEEPSEEK_API_KEY）")
-    return MockChat()
+    if config.test_double():
+        _log.info("LLM 模式：测试替身 MockChat（AGENT_TEST_DOUBLE，仅测试路径）")
+        return MockChat()
+    raise RuntimeError("未配置 DEEPSEEK_API_KEY（mock 模式已移除；离线测试请置 AGENT_TEST_DOUBLE=1）")
 
 
 def get_chat():

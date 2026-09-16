@@ -31,10 +31,8 @@ def node(state: MediaState) -> dict:
         caption = meta["caption"]
         tags = list(meta["hashtags"])
     except Exception as e:
-        warnings.warn(f"packaging: LLM 输出解析失败，降级 fixture：{e!r}")
-        title = mock_content.PACK_RESULT["title"]
-        caption = mock_content.PACK_RESULT["caption"]
-        tags = list(mock_content.PACK_RESULT["tags"])
+        # mock 已移除：解析失败显式失败，绝不静默塞 fixture
+        raise RuntimeError(f"packaging: LLM 输出解析失败：{e!r}") from e
 
     pack = {
         "platform": "抖音",
@@ -74,6 +72,7 @@ STAGE = StageSpec(
 if __name__ == "__main__":
     from agent.state import initial_state
 
+    config.enable_test_double()
     s = initial_state("selftest", "做一条数码赛道的短视频")
     s["topic"] = mock_content.TOPIC_CANDIDATES[0]["title"]
     s["script"] = mock_content.SCRIPT_FULL

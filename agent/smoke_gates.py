@@ -12,7 +12,11 @@
 """
 from __future__ import annotations
 
+import os
 import sys
+
+os.environ.setdefault("AGENT_TEST_DOUBLE", "1")
+os.environ.setdefault("MPT_MODE", "mock")
 
 from langgraph.types import Command
 

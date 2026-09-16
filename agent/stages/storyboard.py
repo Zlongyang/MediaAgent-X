@@ -36,8 +36,8 @@ def node(state: MediaState) -> dict:
         shots = parse_llm_json(raw)
         assert isinstance(shots, list) and shots
     except Exception as e:
-        warnings.warn(f"storyboard: LLM 输出解析失败，降级 fixture：{e!r}")
-        shots = list(mock_content.SHOTS)
+        # mock 已移除：解析失败显式失败，绝不静默塞 fixture
+        raise RuntimeError(f"storyboard: LLM 输出解析失败：{e!r}") from e
     # 规整 idx，保证递增
     for i, s in enumerate(shots, 1):
         s["idx"] = i
@@ -68,6 +68,7 @@ STAGE = StageSpec(
 if __name__ == "__main__":
     from agent.state import initial_state
 
+    config.enable_test_double()
     assert _shot_seconds(1.5) == 1.5
     assert _shot_seconds("3s") == 3.0
     assert _shot_seconds("6") == 6.0

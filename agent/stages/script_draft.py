@@ -21,8 +21,11 @@ def node(state: MediaState) -> dict:
         user=f"定稿选题：「{topic}」。请写 60 秒短视频脚本：钩子/冲突/分段/收尾 CTA，"
              "含画面与台词标注。",
     )
-    script = raw.strip() or mock_content.SCRIPT_FULL
-    excerpt = mock_content.SCRIPT_EXCERPT  # 闸门展示用节选（节选由编剧工种产出，mock 期固定）
+    script = raw.strip()
+    if not script:
+        raise RuntimeError("script_draft: LLM 返回空脚本")
+    # 闸门展示用节选：取真实脚本开头（不再使用固定 fixture 节选）
+    excerpt = script[:600] + ("……" if len(script) > 600 else "")
 
     # 铁律：工件进文件系统，上下文只放指针；脚本正文进 state 仅供闸门展示
     path = config.run_dir(state["run_id"]) / "script.md"
@@ -53,6 +56,7 @@ STAGE = StageSpec(
 if __name__ == "__main__":
     from agent.state import initial_state
 
+    config.enable_test_double()
     s = initial_state("selftest", "做一条数码赛道的短视频")
     s["topic"] = mock_content.TOPIC_CANDIDATES[0]["title"]
     t0 = time.perf_counter()

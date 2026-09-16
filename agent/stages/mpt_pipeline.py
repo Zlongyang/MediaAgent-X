@@ -121,6 +121,7 @@ STAGE = StageSpec(
 if __name__ == "__main__":
     from agent.state import initial_state
 
+    config.enable_test_double()
     s = initial_state("selftest", "做一条数码赛道的短视频")
     s["script"] = "自测脚本"
     t0 = time.perf_counter()

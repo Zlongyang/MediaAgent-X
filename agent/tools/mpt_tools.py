@@ -35,6 +35,12 @@ class MPTInprocError(MPTError):
     """inproc 模式不可用（一期预留）。"""
 
 
+def _require_test_double() -> None:
+    """mock 视频模式已从产品移除，仅测试替身（AGENT_TEST_DOUBLE=1）可用。"""
+    if not config.test_double():
+        raise MPTError("mock 视频模式已下线：MPT_MODE 仅支持 cli/inproc（离线测试请置 AGENT_TEST_DOUBLE=1）")
+
+
 # ---------------------------------------------------------------- cli 模式
 _CLI_RESULTS: dict[str, dict] = {}  # str(run_dir) → mpt 结果 JSON（单次出片，后续子任务复用）
 
@@ -298,6 +304,7 @@ def generate_terms(subject: str, script: str) -> list[str]:
     """
     mode = config.mpt_mode()
     if mode == "mock":
+        _require_test_double()
         return list(mock_content.SEARCH_TERMS)
     if mode == "cli":
         from agent.llm import chat, parse_llm_json
@@ -323,6 +330,7 @@ def synthesize_audio(script: str, run_dir: Path, *, subject: str = "", terms: li
     """
     mode = config.mpt_mode()
     if mode == "mock":
+        _require_test_double()
         return {"audio": _mock_audio(run_dir)}
     if mode == "cli":
         res = _cli_full_run(subject, script, terms or [], run_dir)
@@ -337,6 +345,7 @@ def make_subtitle(script: str, run_dir: Path) -> dict:
     """子任务 subtitle：→ artifacts.subtitle。"""
     mode = config.mpt_mode()
     if mode == "mock":
+        _require_test_double()
         return {"subtitle": _mock_subtitle(run_dir)}
     if mode == "cli":
         res = _cli_full_run("", script, [], run_dir)  # 命中缓存，直接回读
@@ -351,6 +360,7 @@ def fetch_materials(terms: list[str], run_dir: Path) -> dict:
     """子任务 materials：→ 素材路径列表。"""
     mode = config.mpt_mode()
     if mode == "mock":
+        _require_test_double()
         return {"materials": _mock_materials(run_dir)}
     if mode == "cli":
         res = _cli_full_run("", "", [], run_dir)  # 命中缓存
@@ -366,6 +376,7 @@ def compose_video(run_dir: Path) -> dict:
     """子任务 video：合成 → artifacts.final。"""
     mode = config.mpt_mode()
     if mode == "mock":
+        _require_test_double()
         return {"final": _mock_video(run_dir)}
     if mode == "cli":
         res = _cli_full_run("", "", [], run_dir)  # 命中缓存

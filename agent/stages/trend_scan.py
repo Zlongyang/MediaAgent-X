@@ -27,8 +27,8 @@ def node(state: MediaState) -> dict:
         candidates = parse_llm_json(raw)
         assert isinstance(candidates, list) and candidates
     except Exception as e:
-        warnings.warn(f"trend_scan: LLM 输出解析失败，降级 fixture：{e!r}")
-        candidates = list(mock_content.TOPIC_CANDIDATES)  # 解析失败兜底确定性 fixture
+        # mock 已移除：解析失败显式失败（重试由调用方决定），绝不静默塞 fixture
+        raise RuntimeError(f"trend_scan: LLM 输出解析失败：{e!r}") from e
     candidates = candidates[:3]
 
     events.cost_add(llm=COST_LLM)
@@ -54,8 +54,10 @@ STAGE = StageSpec(
 
 if __name__ == "__main__":
     # 独立自测：python -m agent.stages.trend_scan --mock
+    from agent import config
     from agent.state import initial_state
 
+    config.enable_test_double()
     t0 = time.perf_counter()
     out = node(initial_state("selftest", "做一条数码赛道的短视频"))
     print(json.dumps(out["trend_candidates"], ensure_ascii=False, indent=2))
