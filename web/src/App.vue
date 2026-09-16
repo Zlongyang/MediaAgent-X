@@ -934,6 +934,22 @@ function backFromProject() {
   view.value = 'chat'
 }
 
+async function onDeleteProject(id) {
+  const p = projects.value.find((x) => x.id === id)
+  if (!p) return
+  if (!demoMode.value) {
+    try {
+      await api.deleteProject(id)
+    } catch (e) {
+      showToast('删除失败：' + (e.message || e))
+      return
+    }
+  }
+  projects.value = projects.value.filter((x) => x.id !== id)
+  if (activeProjectId.value === id) backFromProject()
+  showToast(demoMode.value ? '已删除项目（演示）' : '已删除项目')
+}
+
 async function publishProject(p) {
   if (p.account === 'none') {
     showToast('请先在 Hero 页选择发布账号，再发起发布')
@@ -1040,6 +1056,7 @@ const navKey = computed(() => (view.value === 'project' || view.value === 'accou
         @select-project="selectProject"
         @open-account="openAccount"
         @open-settings="settingsOpen = true"
+        @delete-project="onDeleteProject"
       />
     </div>
 

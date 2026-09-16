@@ -42,6 +42,7 @@ export const fetchState = (runId) => req(`/runs/${runId}/state`)
 export const listProjects = () => req('/projects')
 export const getProject = (id) => req(`/projects/${id}`)
 export const publishProject = (id) => req(`/projects/${id}/publish`, { method: 'POST', body: '{}' })
+export const deleteProject = (id) => req(`/projects/${id}`, { method: 'DELETE' })
 
 export const listWorkflows = () => req('/workflows')
 export const createWorkflow = (wf) =>

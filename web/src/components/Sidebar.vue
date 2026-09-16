@@ -1,6 +1,7 @@
 <script setup>
-import { computed, reactive } from 'vue'
+import { computed, reactive, ref } from 'vue'
 import AppLogo from './AppLogo.vue'
+import AppIcon from './AppIcon.vue'
 import StatusBadge from './StatusBadge.vue'
 import { ACCOUNTS, NO_ACCOUNT } from '../data/mock.js'
 
@@ -11,7 +12,22 @@ const props = defineProps({
   activeProjectId: { type: String, default: '' },
 })
 
-const emit = defineEmits(['toggle-collapse', 'nav', 'new-video', 'select-project', 'open-account', 'open-settings'])
+const emit = defineEmits(['toggle-collapse', 'nav', 'new-video', 'select-project', 'open-account', 'open-settings', 'delete-project'])
+
+/* 项目删除两步确认：悬停行出垃圾桶，首点武装（3 秒），再点才真删 */
+const armingDelId = ref('')
+let delArmTimer = null
+function onProjectDelClick(id) {
+  if (armingDelId.value === id) {
+    armingDelId.value = ''
+    clearTimeout(delArmTimer)
+    emit('delete-project', id)
+    return
+  }
+  armingDelId.value = id
+  clearTimeout(delArmTimer)
+  delArmTimer = setTimeout(() => (armingDelId.value = ''), 3000)
+}
 
 const NAV = [
   { key: 'monitor', label: '数据监控' },
@@ -123,18 +139,31 @@ function toggleFolder(key) {
           </button>
         </div>
         <div v-show="!closedFolders[f.key]" class="folderBody">
-          <button
+          <div
             v-for="p in f.items"
             :key="p.id"
             class="projItem"
             :class="{ active: props.activeProjectId === p.id }"
             :data-id="p.id"
-            type="button"
+            role="button"
+            tabindex="0"
             @click="emit('select-project', p.id)"
+            @keydown.enter="emit('select-project', p.id)"
           >
             <span class="projName">{{ p.name }}</span>
             <StatusBadge :status="p.status" />
-          </button>
+            <button
+              class="projDel"
+              :data-armed="armingDelId === p.id"
+              type="button"
+              :title="armingDelId === p.id ? '再次点击确认删除' : '删除项目'"
+              :aria-label="armingDelId === p.id ? '再次点击确认删除' : '删除项目'"
+              @click.stop="onProjectDelClick(p.id)"
+            >
+              <AppIcon v-if="armingDelId !== p.id" name="trash" :size="12" />
+              <span v-else class="projDelText">删除？</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -452,6 +481,45 @@ function toggleFolder(key) {
   font-size: 13px;
   line-height: 18px;
   color: var(--dsw-alias-label-primary);
+}
+
+.projDel {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: 50%;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+  color: var(--dsw-alias-label-caption);
+  opacity: 0;
+}
+
+.projItem:hover .projDel,
+.projDel[data-armed='true'] {
+  opacity: 1;
+}
+
+.projDel:hover {
+  background: var(--dsw-alias-interactive-bg-hover);
+  color: var(--dsw-alias-state-error-primary);
+}
+
+.projDel[data-armed='true'] {
+  min-width: 0;
+  padding: 0 6px;
+  border-radius: 8px;
+  color: var(--dsw-alias-state-error-primary);
+}
+
+.projDelText {
+  font-size: 11px;
+  line-height: 1;
+  white-space: nowrap;
 }
 
 .foot {
