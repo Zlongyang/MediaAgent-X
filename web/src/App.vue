@@ -76,10 +76,41 @@ function loadMockSources() {
   monitorVideos.value = MONITOR_VIDEOS
 }
 
+// 自动降级标记：只有「后端不可达被动降级」的演示模式才允许自动切回；
+// 用户手动选择的演示模式永不打扰（评审 #2 的「陷阱」修复）
+function markDemoAuto(on) {
+  try {
+    if (on) localStorage.setItem('max-demo-auto', '1')
+    else localStorage.removeItem('max-demo-auto')
+  } catch (e) {}
+}
+
+function isDemoAuto() {
+  try {
+    return localStorage.getItem('max-demo-auto') === '1'
+  } catch (e) {
+    return false
+  }
+}
+
 async function reloadSources() {
   if (demoMode.value) {
-    loadMockSources()
-    return
+    if (isDemoAuto()) {
+      // 上次是被动降级：探活，后端回来了就自动切回真实模式
+      try {
+        await api.health()
+        demoMode.value = false
+        persistDemo()
+        markDemoAuto(false)
+        showToast('后端已恢复，已切回真实模式')
+      } catch (e) {
+        loadMockSources()
+        return
+      }
+    } else {
+      loadMockSources()
+      return
+    }
   }
   try {
     const h = await api.health()
@@ -92,6 +123,7 @@ async function reloadSources() {
     if (!e.status || e.status >= 500) {
       demoMode.value = true
       persistDemo()
+      markDemoAuto(true)
       loadMockSources()
       showToast('后端不可达，已切演示模式')
     } else {
@@ -109,6 +141,7 @@ async function refreshWorkflows() {
 
 function setDemo(v) {
   if (running.value) { showToast('运行进行中，完成后再切换模式'); return }
+  markDemoAuto(false) // 手动选择：清除自动降级标记，永不自动切回
   demoMode.value = !!v
   persistDemo()
   reloadSources()
@@ -728,6 +761,7 @@ function degradeToMock(text, opts, seq) {
   showToast('后端不可达，已切演示模式')
   demoMode.value = true
   persistDemo()
+  markDemoAuto(true)
   loadMockSources()
   running.value = false
   if (seq !== runSeq) return
