@@ -82,7 +82,8 @@ async function reloadSources() {
     return
   }
   try {
-    await api.health()
+    const h = await api.health()
+    mptMode.value = h.mpt || 'mock'
     const [p, w, v] = await Promise.all([api.listProjects(), api.listWorkflows(), api.listMonitorVideos()])
     projects.value = p.map(mapProject)
     workflows.value = w
@@ -111,6 +112,23 @@ function setDemo(v) {
   demoMode.value = !!v
   persistDemo()
   reloadSources()
+}
+
+/* 视频合成方式（MPT_MODE），真实模式下从后端 health 读取、经 /api/config/mpt 切换 */
+const mptMode = ref('mock')
+
+async function setMptMode(v) {
+  if (demoMode.value) {
+    showToast('演示模式下视频合成固定为 Mock')
+    return
+  }
+  try {
+    const r = await api.setMptMode(v)
+    mptMode.value = r.mpt || v
+    showToast(v === 'mock' ? '已切换：Mock 占位成片' : '已切换：mpt 真实出片（cli），后续 run 生效')
+  } catch (e) {
+    showToast('切换失败：' + (e.message || e))
+  }
 }
 
 onMounted(reloadSources)
@@ -1165,10 +1183,12 @@ const navKey = computed(() => (view.value === 'project' || view.value === 'accou
       :theme="theme"
       :api-key="apiKey"
       :demo="demoMode"
+      :mpt="mptMode"
       @close="settingsOpen = false"
       @set-theme="setTheme"
       @set-api-key="(k) => (apiKey = k)"
       @set-demo="setDemo"
+      @set-mpt="setMptMode"
     />
   </div>
 </template>

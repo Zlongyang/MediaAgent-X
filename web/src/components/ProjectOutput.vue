@@ -15,7 +15,14 @@ const ARTIFACT_LABELS = { audio: 'audio · 配音', subtitle: 'subtitle · 字�
   <div class="output">
     <!-- player -->
     <div class="playerCard">
-      <div v-if="props.project.video" class="videoStub">
+      <video
+        v-if="props.project.videoUrl"
+        class="videoReal"
+        :src="props.project.videoUrl"
+        controls
+        preload="metadata"
+      />
+      <div v-else-if="props.project.video" class="videoStub">
         <svg class="play" width="48" height="48" viewBox="0 0 44 44" fill="none">
           <circle cx="22" cy="22" r="21" class="playRing" />
           <path d="M18 15.5v13l11-6.5-11-6.5Z" class="playTri" />
@@ -109,6 +116,15 @@ const ARTIFACT_LABELS = { audio: 'audio · 配音', subtitle: 'subtitle · 字�
   align-items: center;
   justify-content: center;
   gap: 8px;
+  aspect-ratio: 16 / 9;
+  border-radius: 10px;
+  background: var(--dsw-static-neutral-bluish-900);
+  border: 1px solid var(--dsw-alias-border-l1);
+}
+
+.videoReal {
+  display: block;
+  width: 100%;
   aspect-ratio: 16 / 9;
   border-radius: 10px;
   background: var(--dsw-static-neutral-bluish-900);

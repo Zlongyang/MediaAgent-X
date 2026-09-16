@@ -1,6 +1,13 @@
 // 后端 → 前端的形状翻译（spec §4.2）。
 import { defaultConfig } from '../data/mock.js'
 
+// 工件绝对/相对路径 → 前端可播的 HTTP URL（后端 /api/runs/{id}/artifacts/ 服务）
+export function artifactUrl(p) {
+  if (!p) return ''
+  const m = String(p).replace(/\\/g, '/').match(/runs\/([^/]+)\/(.+)$/)
+  return m ? `/api/runs/${m[1]}/artifacts/${m[2]}` : ''
+}
+
 // gate_request.data → GateCard 需要的 gate 对象
 export function mapGateRequest(d) {
   const view = d.view || {}
@@ -12,6 +19,7 @@ export function mapGateRequest(d) {
     candidates: view.candidates,
     script: view.excerpt,
     videoPath: view.video,
+    videoUrl: artifactUrl(view.video),
     pack: view.pack,
   }
 }
@@ -50,6 +58,7 @@ export function mapProject(p) {
     config: p.config || defaultConfig(),
     artifacts,
     video: p.video || null,
+    videoUrl: p.videoUrl || artifactUrl(artifacts.final),
     pack: p.pack || null,
     stages: p.stages || [],
     shots: p.shots || [],

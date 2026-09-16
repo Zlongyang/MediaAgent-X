@@ -60,7 +60,14 @@ function confirm() {
 
     <!-- 成片预览 -->
     <div v-else-if="props.gate.key === 'gate_preview'" class="gateBody">
-      <div class="videoStub">
+      <video
+        v-if="props.gate.videoUrl"
+        class="videoReal"
+        :src="props.gate.videoUrl"
+        controls
+        preload="metadata"
+      />
+      <div v-else class="videoStub">
         <svg class="play" width="44" height="44" viewBox="0 0 44 44" fill="none">
           <circle cx="22" cy="22" r="21" class="playRing" />
           <path d="M18 15.5v13l11-6.5-11-6.5Z" class="playTri" />
@@ -230,6 +237,15 @@ function confirm() {
   justify-content: center;
   gap: 8px;
   aspect-ratio: 16 / 9;
+  border-radius: 10px;
+  background: var(--dsw-static-neutral-bluish-900);
+  border: 1px solid var(--dsw-alias-border-l1);
+}
+
+.videoReal {
+  display: block;
+  width: 100%;
+  max-height: 420px;
   border-radius: 10px;
   background: var(--dsw-static-neutral-bluish-900);
   border: 1px solid var(--dsw-alias-border-l1);

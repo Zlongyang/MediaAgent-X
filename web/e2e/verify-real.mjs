@@ -84,12 +84,14 @@ try {
   }
   if (nonces.gate_script !== 2) throw new Error('gate_script nonce 应为 2，实际 ' + JSON.stringify(nonces))
 
-  // 4. 成片预览闸门 → 确认
+  // 4. 成片预览闸门 → 确认（mock 色卡 mp4 经 /artifacts 服务渲染为真 <video>）
   step = 'gate_preview'
   await page.waitForFunction(
     () => document.querySelector('.gateTitle') && document.querySelector('.gateTitle').textContent.includes('成片预览'),
     { timeout: 30000 }
   )
+  await page.waitForSelector('.gate video.videoReal', { timeout: 8000 })
+  await page.screenshot({ path: SHOTS + 'vr-03b-gate-preview-video.png' })
   await page.$$eval('.gateFoot .btnPrimary', (els) => els[0].click())
 
   // 5. 发布闸门 → 确认
@@ -123,6 +125,8 @@ try {
   // 视频产出 tab
   await page.$$eval('.tab', (els) => els.find((e) => e.textContent === '视频产出').click())
   await page.waitForFunction(() => document.body.textContent.includes('工件'), { timeout: 5000 })
+  await page.waitForSelector('.playerCard video.videoReal', { timeout: 8000 })
+  await page.screenshot({ path: SHOTS + 'vr-05a-project-output-video.png' })
   // 制作详情 tab：分镜表来自真实 shots
   await page.$$eval('.tab', (els) => els.find((e) => e.textContent === '制作详情').click())
   await page.waitForFunction(() => document.body.textContent.includes('分镜'), { timeout: 5000 })
