@@ -4,9 +4,10 @@ from __future__ import annotations
 import json
 import sys
 import time
+import warnings
 
 from agent import config, events
-from agent.llm import chat, load_prompt
+from agent.llm import chat, load_prompt, parse_llm_json
 from agent.state import MediaState
 from agent.stages.base import StageSpec
 from agent.tools import mock_content
@@ -25,11 +26,12 @@ def node(state: MediaState) -> dict:
              + script[:800],
     )
     try:
-        meta = json.loads(raw)
+        meta = parse_llm_json(raw)
         title = meta["title"]
         caption = meta["caption"]
         tags = list(meta["hashtags"])
-    except Exception:
+    except Exception as e:
+        warnings.warn(f"packaging: LLM 输出解析失败，降级 fixture：{e!r}")
         title = mock_content.PACK_RESULT["title"]
         caption = mock_content.PACK_RESULT["caption"]
         tags = list(mock_content.PACK_RESULT["tags"])

@@ -9,6 +9,7 @@ MockChat 按 prompt 关键词路由到 mock_content 的确定性 fixture，
 from __future__ import annotations
 
 import json
+import re
 import warnings
 
 from agent import config
@@ -88,3 +89,44 @@ def load_prompt(rel_path: str) -> str:
         return p.read_text(encoding="utf-8").strip()
     except OSError:
         return ""
+
+
+_JSON_BLOCK = re.compile(r"```(?:json)?\s*([\s\S]*?)\s*```")
+
+
+def parse_llm_json(text: str):
+    """解析 LLM 的结构化输出：容忍 ```json 围栏与首尾散文；空/截断/垃圾抛异常（调用方兜底）。
+
+    MockChat 返回裸 JSON 走快路径；真实 LLM 偶尔加围栏或解释性文字时，
+    提取首个 [...] 或 {...} 片段。提取层宽松，解析本身仍是严格 json.loads。
+    """
+    raw = (text or "").strip()
+    if not raw:
+        raise ValueError("LLM 返回为空")
+    try:
+        return json.loads(raw)
+    except json.JSONDecodeError:
+        pass
+    m = _JSON_BLOCK.search(raw)
+    if m:
+        return json.loads(m.group(1))
+    start = min((i for i in (raw.find("["), raw.find("{")) if i >= 0), default=-1)
+    if start >= 0:
+        end = max(raw.rfind("]"), raw.rfind("}"))
+        if end > start:
+            return json.loads(raw[start : end + 1])
+    raise ValueError(f"LLM 输出不含可解析 JSON：{raw[:80]!r}")
+
+
+if __name__ == "__main__":
+    assert parse_llm_json('[{"a":1}]') == [{"a": 1}]
+    assert parse_llm_json('```json\n[{"a":1}]\n```') == [{"a": 1}]
+    assert parse_llm_json('好的，结果是：\n[{"a":1}]\n以上。') == [{"a": 1}]
+    assert parse_llm_json('{"k": "v"}') == {"k": "v"}
+    for bad in ("", "没有 JSON", '[{"a":1'):
+        try:
+            parse_llm_json(bad)
+            raise SystemExit(f"应当抛异常：{bad!r}")
+        except (ValueError, json.JSONDecodeError):
+            pass
+    print("[PASS] llm.parse_llm_json 自测通过")

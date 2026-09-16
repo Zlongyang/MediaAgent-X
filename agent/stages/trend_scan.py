@@ -4,9 +4,10 @@ from __future__ import annotations
 import json
 import sys
 import time
+import warnings
 
 from agent import events
-from agent.llm import chat, load_prompt
+from agent.llm import chat, load_prompt, parse_llm_json
 from agent.state import MediaState, mark_todo
 from agent.stages.base import StageSpec
 from agent.tools import mock_content
@@ -23,9 +24,10 @@ def node(state: MediaState) -> dict:
              'JSON 数组，元素形状 {"title","source","heat","reason"}。',
     )
     try:
-        candidates = json.loads(raw)
+        candidates = parse_llm_json(raw)
         assert isinstance(candidates, list) and candidates
-    except Exception:
+    except Exception as e:
+        warnings.warn(f"trend_scan: LLM 输出解析失败，降级 fixture：{e!r}")
         candidates = list(mock_content.TOPIC_CANDIDATES)  # 解析失败兜底确定性 fixture
     candidates = candidates[:3]
 
