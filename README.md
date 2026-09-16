@@ -50,14 +50,16 @@ python -m agent.cli --mock --no-auto "做一条数码赛道的短视频"
 开两个终端：
 
 ```bash
-# 终端 1：后端 API + SSE 服务（默认 8000 端口）
-uvicorn agent.server:app --host 127.0.0.1 --port 8000
+# 终端 1：后端 API + SSE 服务（默认 8000 端口；无 DEEPSEEK_API_KEY 时 LLM 自动 Mock）
+PYTHONUTF8=1 .venv/Scripts/python.exe -m uvicorn agent.server:app --host 127.0.0.1 --port 8000
 
-# 终端 2：前端（Vite dev server）
+# 终端 2：前端（Vite dev server，已配 /api → 127.0.0.1:8000 代理，可用 VITE_API_TARGET 改）
 cd web && npm run dev
 ```
 
-> 注意：当前前端仍是 mock 数据演示（行为已验收），按 [docs/04](docs/04-业务逻辑梳理与后端契约.md) §11 接缝清单把 `App.vue startRun` 换成 SSE 消费即完成接真。
+前端默认**真实模式**：对话框发起真实 run，SSE 驱动流水线/闸门/成本；设置页可切**演示模式**（纯前端 Mock，无后端也能跑）；后端不可达时自动降级演示并 toast 提示。
+
+对话框除了发起单次任务，还能建工作流（如「每天早上 8 点做一条数码视频」→ 有真 LLM 时自动建成 cron 工作流；MockChat 下降级为普通 run）。工作流管理在「已安排工作流」页：新建/删除/启停/立即运行（立即运行 = 真实触发一条 run）。
 
 后端 API 一览（契约见 docs/04 §6）：
 
@@ -67,7 +69,16 @@ GET  /api/runs/{id}/events        SSE 事件流（阶段/闸门/成本/工件）
 POST /api/runs/{id}/gate          闸门决议 {nonce, action: confirm|reject, payload?}
 GET  /api/runs/{id}/state         MediaState 快照（运行状态面板数据源）
 POST /api/runs/{id}/autonomy      切换闸门开关
+POST /api/chat                    对话意图路由 → {kind:'run'} | {kind:'workflow', workflow}
 GET  /api/projects[/{id}]         项目归档（扫描 workspace/runs 重建）
+POST /api/projects/{id}/publish   手动发布（unpublished → published）
+GET  /api/workflows               工作流列表（workspace/workflows.json）
+POST /api/workflows               新建工作流 {name, desc, schedule, account, brief?, enabled?}
+DELETE /api/workflows/{id}        删除工作流
+POST /api/workflows/{id}/toggle   启停切换
+POST /api/workflows/{id}/run      立即运行 → {ok, run_id}（真实触发）
+GET  /api/monitor/videos          数据监控（读 workspace/monitor_videos.json，空则 []）
+GET  /api/health                  健康检查
 ```
 
 ### 形态 C：真实出片（接 mpt + 真 LLM）
